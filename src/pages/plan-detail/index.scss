@@ -1,0 +1,69 @@
+.plan-info-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-2);
+}
+
+.plan-manage {
+  display: flex;
+  align-items: center;
+  min-height: 36px;
+  color: var(--color-accent);
+  font-size: var(--text-body);
+  font-weight: 600;
+}
+
+.plan-info-card {
+  margin: var(--space-4) 0 var(--space-8);
+  padding: 0;
+  background: transparent;
+}
+
+.plan-info-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.plan-info-topic {
+  display: block;
+  flex: 1;
+  min-width: 0;
+  color: var(--color-ink);
+  font-size: var(--text-heading);
+  font-weight: 700;
+  line-height: var(--leading-heading);
+  word-break: break-all;
+}
+
+.plan-info-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.plan-info-rows {
+  margin-top: var(--space-5);
+}
+
+.run-card {
+  margin: 0;
+  padding: var(--space-4) 0 var(--space-5);
+  background: transparent;
+}
+
+.run-card + .run-card {
+  box-shadow: inset 0 1px 0 var(--color-divider);
+}
+
+.run-title {
+  flex: 1;
+  min-width: 0;
+  color: var(--color-ink);
+  font-size: var(--text-body);
+  font-weight: 600;
+  word-break: break-all;
+}

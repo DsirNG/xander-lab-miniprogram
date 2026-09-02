@@ -1,0 +1,13 @@
+{
+  "miniprogramRoot": "dist/",
+  "projectname": "dinqorai-miniprogram",
+  "description": "DinQorAI 小程序",
+  "appid": "wx63b2e6732ff75cc8",
+  "setting": {
+    "urlCheck": false,
+    "es6": true,
+    "postcss": true,
+    "minified": true,
+    "uploadWithSourceMap": false
+  }
+}

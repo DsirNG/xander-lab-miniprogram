@@ -1,0 +1,13 @@
+.points-page-card {
+  margin-top: 20px;
+}
+.ledger-info {
+  flex: 1;
+  min-width: 0;
+}
+.ledger-reason {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}

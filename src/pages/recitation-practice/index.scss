@@ -1,0 +1,59 @@
+@use '../../styles/tokens.scss';
+
+.recitation-practice-page {
+  min-height: 100vh;
+  background: var(--color-canvas);
+}
+.recitation-practice-content {
+  padding: var(--space-4);
+}
+.recitation-mode-row {
+  display: flex;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+.recitation-source-card,
+.recitation-recorder-card {
+  padding: var(--space-5);
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+}
+.recitation-source-card {
+  min-height: 220px;
+}
+.recitation-source-card--hidden {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-accent-soft);
+}
+.recitation-source-text {
+  color: var(--color-ink);
+  font-size: var(--text-title);
+  line-height: 30px;
+  white-space: pre-wrap;
+}
+.recitation-hidden-text {
+  color: var(--color-accent);
+  font-size: var(--text-title);
+  font-weight: 600;
+}
+.recitation-recorder-card {
+  margin-top: var(--space-4);
+  text-align: center;
+}
+.recitation-record-status {
+  display: block;
+  margin-bottom: var(--space-4);
+  color: var(--color-ink);
+  font-size: var(--text-heading);
+  line-height: var(--leading-heading);
+  font-weight: 600;
+}
+.recitation-record-hint {
+  display: block;
+  margin-top: var(--space-3);
+  color: var(--color-ink-muted);
+  font-size: var(--text-caption);
+  line-height: var(--leading-caption);
+}

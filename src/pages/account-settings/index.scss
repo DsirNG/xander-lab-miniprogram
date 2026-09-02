@@ -1,0 +1,35 @@
+.settings-page {
+  min-height: 100vh;
+  background: var(--color-surface);
+  color: var(--color-ink);
+}
+.settings-content {
+  padding: var(--space-2) var(--space-5) var(--space-8);
+}
+.settings-section-title {
+  display: block;
+  margin: var(--space-6) 0 var(--space-2);
+  color: var(--color-ink-muted);
+  font-size: var(--text-caption);
+  line-height: var(--leading-caption);
+}
+.settings-list {
+  background: var(--color-surface);
+}
+.settings-row .ui-list-row-leading {
+  min-width: 32px;
+  min-height: 32px;
+}
+.settings-row .ui-list-row-leading .icon {
+  width: 20px;
+  height: 20px;
+}
+.settings-row .ui-list-row-trailing {
+  min-width: 24px;
+  min-height: 24px;
+}
+.settings-row .ui-list-row-trailing .icon {
+  width: 16px;
+  height: 16px;
+  opacity: 0.55;
+}

@@ -1,0 +1,32 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Taro build output and caches
+dist/
+.swc/
+.taro/
+.temp/
+
+# Test coverage
+coverage/
+
+# Local logs
+*.log
+
+# Local credentials and environment overrides
+keys/
+*.key
+*.pem
+.env
+.env.*
+!.env.example
+
+# Editor and operating system files
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Local design-review artifacts
+.product-design-audit/

@@ -1,0 +1,49 @@
+{
+  "name": "dinqorai-miniprogram",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "dev:weapp": "taro build --type weapp --watch",
+    "build:weapp": "taro build --type weapp",
+    "dev:alipay": "taro build --type alipay --watch",
+    "build:alipay": "taro build --type alipay",
+    "dev:h5": "taro build --type h5 --watch",
+    "build:h5": "taro build --type h5",
+    "upload:weapp": "taro build --type weapp && node scripts/fix-weapp-ci-deps.mjs && node scripts/upload.mjs",
+    "fix:weapp-ci-deps": "node scripts/fix-weapp-ci-deps.mjs",
+    "test": "vitest run",
+    "postinstall": "node scripts/fix-weapp-ci-deps.mjs",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "dependencies": {
+    "@tarojs/components": "4.2.1",
+    "@tarojs/helper": "4.2.1",
+    "@tarojs/plugin-framework-react": "4.2.1",
+    "@tarojs/plugin-platform-alipay": "4.2.1",
+    "@tarojs/plugin-platform-h5": "4.2.1",
+    "@tarojs/plugin-platform-weapp": "4.2.1",
+    "@tarojs/react": "4.2.1",
+    "@tarojs/runtime": "4.2.1",
+    "@tarojs/shared": "4.2.1",
+    "@tarojs/taro": "4.2.1",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "zustand": "5.0.8"
+  },
+  "devDependencies": {
+    "@babel/preset-env": "^8.0.2",
+    "@babel/preset-react": "^8.0.1",
+    "@babel/preset-typescript": "^8.0.1",
+    "@pmmmwh/react-refresh-webpack-plugin": "0.5.17",
+    "@tarojs/cli": "4.2.1",
+    "@tarojs/webpack5-runner": "4.2.1",
+    "@types/react": "18.3.27",
+    "babel-preset-taro": "4.2.1",
+    "miniprogram-ci": "^2.1.31",
+    "prettier": "^3.9.6",
+    "typescript": "5.9.3",
+    "vitest": "^4.1.11",
+    "webpack": "5.91.0"
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "miniprogramRoot": "dist/",
+  "projectname": "dinqorai-miniprogram",
+  "description": "DinQorAI 小程序",
+  "appid": "touristappid",
+  "setting": { "urlCheck": false, "es6": true, "postcss": true, "minified": true }
+}
