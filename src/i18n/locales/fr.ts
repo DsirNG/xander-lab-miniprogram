@@ -59,6 +59,7 @@ export default {
     privacyUnavailable: 'Consultez la politique de confidentialité dans la mini-application',
     wxCredentialFailed: 'Échec de l’obtention du justificatif WeChat',
     loginSuccess: 'Connexion réussie',
+    qrTitle: 'Confirmer la connexion PC', qrDescription: 'DinQorAI demande l’accès à votre compte sur un ordinateur.', qrConfirm: 'Confirmer', qrSignInFirst: 'Connectez-vous d’abord', qrConfirmed: 'Confirmé', qrFailed: 'Échec de confirmation', qrInvalid: 'Code invalide ou expiré',
     loginFailed: 'Échec de la connexion. Réessayez.',
     codeSent: 'Code envoyé',
     codeSendFailed: 'Échec de l’envoi du code. Réessayez.',

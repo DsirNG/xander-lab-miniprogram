@@ -5,6 +5,7 @@ export default defineAppConfig({
     'pages/blog/index',
     'pages/profile/index',
     'pages/login/index',
+    'pages/scan-login/index',
     'pages/blog-detail/index',
     'pages/plan-detail/index',
     'pages/plan-create/index',

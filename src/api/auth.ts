@@ -26,6 +26,8 @@ export type TokenResponse = {
 }
 
 export const authApi = {
+  confirmQrLogin: (ticket: string) =>
+    request<void>(`/api/auth/qr/confirm?ticket=${encodeURIComponent(ticket)}`, { method: 'POST' }),
   /** 发送邮箱验证码（绑定流程与账号登录共用同一个 Redis 验证码） */
   sendCode: async (email: string) => {
     await request<void>('/api/auth/code', {

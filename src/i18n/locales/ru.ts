@@ -59,6 +59,7 @@ export default {
     privacyUnavailable: 'Посмотрите политику конфиденциальности внутри мини-программы',
     wxCredentialFailed: 'Не удалось получить учётные данные WeChat',
     loginSuccess: 'Вы вошли',
+    qrTitle: 'Подтвердить вход на ПК', qrDescription: 'DinQorAI запрашивает доступ к вашему аккаунту на компьютере.', qrConfirm: 'Подтвердить вход', qrSignInFirst: 'Сначала войдите', qrConfirmed: 'Подтверждено', qrFailed: 'Ошибка подтверждения', qrInvalid: 'Недействительный или просроченный код',
     loginFailed: 'Не удалось войти. Повторите попытку.',
     codeSent: 'Код отправлен',
     codeSendFailed: 'Не удалось отправить код. Повторите попытку.',

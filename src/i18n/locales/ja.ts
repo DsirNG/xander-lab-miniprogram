@@ -59,6 +59,7 @@ export default {
     privacyUnavailable: 'ミニプログラム内でプライバシーポリシーをご確認ください',
     wxCredentialFailed: 'WeChat のログイン認証情報を取得できませんでした',
     loginSuccess: 'ログインしました',
+    qrTitle: 'PC ログインを確認', qrDescription: 'DinQorAI が PC でのアカウント利用をリクエストしています。', qrConfirm: 'ログインを確認', qrSignInFirst: '先にログイン', qrConfirmed: '確認しました', qrFailed: '確認に失敗しました', qrInvalid: '無効または期限切れのコード',
     loginFailed: 'ログインに失敗しました。もう一度お試しください。',
     codeSent: '認証コードを送信しました',
     codeSendFailed: 'コードの送信に失敗しました。もう一度お試しください。',

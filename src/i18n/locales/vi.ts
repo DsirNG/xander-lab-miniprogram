@@ -59,6 +59,7 @@ export default {
     privacyUnavailable: 'Vui lòng xem chính sách quyền riêng tư trong mini-program',
     wxCredentialFailed: 'Không lấy được mã đăng nhập WeChat',
     loginSuccess: 'Đăng nhập thành công',
+    qrTitle: 'Xác nhận đăng nhập PC', qrDescription: 'DinQorAI yêu cầu truy cập tài khoản của bạn trên máy tính.', qrConfirm: 'Xác nhận đăng nhập', qrSignInFirst: 'Đăng nhập trước', qrConfirmed: 'Đã xác nhận', qrFailed: 'Xác nhận thất bại', qrInvalid: 'Mã không hợp lệ hoặc đã hết hạn',
     loginFailed: 'Đăng nhập thất bại. Vui lòng thử lại.',
     codeSent: 'Đã gửi mã xác nhận',
     codeSendFailed: 'Gửi mã thất bại. Vui lòng thử lại.',

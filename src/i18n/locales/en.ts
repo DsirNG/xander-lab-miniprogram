@@ -59,6 +59,7 @@ export default {
     privacyUnavailable: 'Please view the privacy policy inside the mini-program',
     wxCredentialFailed: 'Failed to get the WeChat login credential',
     loginSuccess: 'Signed in',
+    qrTitle: 'Confirm PC sign-in', qrDescription: 'DinQorAI is requesting access to your account on a computer.', qrConfirm: 'Confirm sign-in', qrSignInFirst: 'Sign in first', qrConfirmed: 'Confirmed', qrFailed: 'Confirmation failed', qrInvalid: 'Invalid or expired code',
     loginFailed: 'Sign-in failed. Please try again.',
     codeSent: 'Verification code sent',
     codeSendFailed: 'Failed to send the code. Please try again.',

@@ -58,6 +58,7 @@ export default {
     privacyUnavailable: '请在小程序内查看隐私政策',
     wxCredentialFailed: '获取微信登录凭证失败',
     loginSuccess: '登录成功',
+    qrTitle: '确认登录电脑端', qrDescription: 'DinQorAI 请求使用你的账号登录电脑端。', qrConfirm: '确认登录', qrSignInFirst: '先登录小程序', qrConfirmed: '已确认', qrFailed: '确认失败', qrInvalid: '二维码无效或已过期',
     loginFailed: '登录失败，请重试',
     codeSent: '验证码已发送',
     codeSendFailed: '验证码发送失败，请稍后重试',
