@@ -15,12 +15,18 @@ export default function ScanLogin() {
 
   const confirm = async () => {
     if (!ticket || loading) return
-    if (!user) {
-      Taro.redirectTo({ url: '/pages/login/index?autologin=1' })
-      return
-    }
     setLoading(true)
     try {
+      // 仅在用户点击确认后登录，登录成功后继续确认当前二维码。
+      if (!user && !authApi.isLoggedIn()) {
+        const loginResult = await Taro.login()
+        if (!loginResult.code) throw new Error('微信登录失败，请重试')
+        const response = await authApi.wechatLogin(loginResult.code)
+        if (!response.accessToken) {
+          throw new Error(response.pendingBind ? '请先完成微信账号绑定' : '微信登录失败，请重试')
+        }
+        await useUserStore.getState().refresh()
+      }
       await authApi.confirmQrLogin(ticket)
       Taro.showToast({ title: t('login.qrConfirmed'), icon: 'success' })
       setTimeout(() => Taro.navigateBack().catch(() => undefined), 700)
@@ -39,7 +45,7 @@ export default function ScanLogin() {
         <Text className="scan-login-title">{t('login.qrTitle')}</Text>
         <Text className="scan-login-desc">{t('login.qrDescription')}</Text>
         <Button className="btn btn-primary scan-login-button" loading={loading} onClick={confirm}>
-          {user ? t('login.qrConfirm') : t('login.qrSignInFirst')}
+          {user || authApi.isLoggedIn() ? t('login.qrConfirm') : t('login.qrLoginAndConfirm')}
         </Button>
         {!ticket ? <Text className="scan-login-error">{t('login.qrInvalid')}</Text> : null}
       </View>
