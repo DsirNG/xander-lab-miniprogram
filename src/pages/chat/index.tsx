@@ -26,10 +26,16 @@ import { truncate } from '@/utils/markdown'
 import { t } from '@/i18n'
 import { ChatComposer } from './components/ChatComposer'
 import { ChatDrawer } from './components/ChatDrawer'
+import {
+  absoluteMediaUrl,
+  IMAGE_TOOL,
+  isImageTool,
+  parseImageToolResult as parseImageToolResultPayload,
+  type ImageToolResult,
+} from './imageMessage'
 import './index.scss'
 
 const ACTIVE_KEY = 'chat_active_id'
-const IMAGE_TOOL = 'image_generate'
 
 const QUICK_PROMPTS = ['写一篇技术博客', '搜索并整理资料', '我有一个问题']
 const CHAT_COPY = {
@@ -52,10 +58,7 @@ type StreamToolState = {
   message: string
 }
 
-type GeneratedImageResult = {
-  url: string
-  title?: string
-}
+type GeneratedImageResult = ImageToolResult
 
 type ToolEventData = {
   tool?: string
@@ -63,19 +66,8 @@ type ToolEventData = {
   result?: { url?: string; title?: string }
 }
 
-function absoluteMediaUrl(url: string) {
-  if (/^https?:\/\//i.test(url)) return url
-  return `${API_ORIGIN}${url.startsWith('/') ? url : `/${url}`}`
-}
-
 function parseImageToolResult(message: AgentMessage): GeneratedImageResult | null {
-  if (message.kind !== 'tool_result' || message.toolName !== IMAGE_TOOL) return null
-  try {
-    const payload = JSON.parse(message.content) as { url?: string; title?: string }
-    return payload.url ? { url: absoluteMediaUrl(payload.url), title: payload.title } : null
-  } catch {
-    return null
-  }
+  return parseImageToolResultPayload(message, API_ORIGIN)
 }
 
 function groupMessagesIntoTurns(messages: AgentMessage[]): MessageTurn[] {
@@ -262,7 +254,7 @@ export default function Chat() {
           const data = ev.data as ToolEventData | undefined
           const name = String(data?.tool ?? '内部工具')
           setStreamTool({ name, message: '' })
-          if (name === IMAGE_TOOL) setStreamImageResult(null)
+          if (isImageTool(name)) setStreamImageResult(null)
         } else if (ev.event === 'tool_progress') {
           const data = ev.data as ToolEventData | undefined
           setStreamTool(previous => ({
@@ -271,10 +263,11 @@ export default function Chat() {
           }))
         } else if (ev.event === 'tool_end') {
           const data = ev.data as ToolEventData | undefined
-          if (data?.tool === IMAGE_TOOL && data.result?.url) {
+          const result = data?.result
+          if (isImageTool(data?.tool) && result?.url) {
             setStreamImageResult({
-              url: absoluteMediaUrl(data.result.url),
-              title: data.result.title,
+              url: absoluteMediaUrl(result.url, API_ORIGIN),
+              title: result.title,
             })
           }
           setStreamTool(null)
@@ -755,7 +748,7 @@ function MessagePart({
                 <Image
                   key={attachment.url}
                   className="msg-user-attachment-image"
-                  src={absoluteMediaUrl(attachment.url)}
+                  src={absoluteMediaUrl(attachment.url, API_ORIGIN)}
                   mode="aspectFill"
                 />
               ) : (
@@ -786,7 +779,7 @@ function MessagePart({
     )
   }
   if (message.kind === 'tool_call') {
-    if (message.toolName === IMAGE_TOOL) return null
+    if (isImageTool(message.toolName)) return null
     return (
       <View className="msg-tool">
         <View className="msg-tool-dot" />

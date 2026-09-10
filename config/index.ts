@@ -10,7 +10,7 @@ export default defineConfig({
   outputRoot: 'dist',
   framework: 'react',
   compiler: 'webpack5',
-  alias: { '@': path.resolve(__dirname, '..', 'src') },
+  alias: { '@': path.resolve(process.cwd(), 'src') },
   mini: { postcss: { pxtransform: { enable: true }, cssModules: { enable: false } } },
   h5: {
     publicPath: '/',
