@@ -7,7 +7,7 @@ import {
   type ITouchEvent,
 } from '@tarojs/components'
 import Taro, { useDidHide, useDidShow } from '@tarojs/taro'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   agentApi,
   type AgentConversation,
@@ -37,6 +37,13 @@ import './index.scss'
 
 const ACTIVE_KEY = 'chat_active_id'
 
+/**
+ * 流式回答的合并提交间隔（毫秒）。这是"用户看到下一段文字"的节奏上限：
+ * 100ms 在移动端阅读上已经足够连贯，同时把一次长回答的重渲染次数
+ * 从 token 数量级降到时间窗数量级。
+ */
+const STREAM_FLUSH_INTERVAL = 100
+
 const QUICK_PROMPTS = ['写一篇技术博客', '搜索并整理资料', '我有一个问题']
 const CHAT_COPY = {
   history: '最近对话',
@@ -49,6 +56,14 @@ type MessageTurn = {
   id: string
   role: 'user' | 'assistant'
   messages: AgentMessage[]
+  /**
+   * 这一轮里已由图片工具产出的 URL 集合。
+   *
+   * <p>在分组时算一次并挂到 turn 上，而不是在渲染时每条消息现算：
+   * 流式期间渲染会反复发生，逐条解析工具结果的 JSON 会变成可观的开销，
+   * 而这份集合只随 messages 变化，天然适合跟着 useMemo 一起缓存。</p>
+   */
+  imageResultUrls: Set<string>
 }
 
 const EMPTY_MESSAGES: AgentMessage[] = []
@@ -71,32 +86,44 @@ function parseImageToolResult(message: AgentMessage): GeneratedImageResult | nul
 }
 
 function groupMessagesIntoTurns(messages: AgentMessage[]): MessageTurn[] {
-  return messages.reduce<MessageTurn[]>((turns, message) => {
+  const turns = messages.reduce<MessageTurn[]>((accumulated, message) => {
+    // 集合统一在最后填充；这里先占位，避免逐条消息新建临时 Set。
+    const imageResultUrls = new Set<string>()
     if (message.role === 'user') {
-      turns.push({
+      accumulated.push({
         key: `user-${message.id}`,
         id: `msg-${message.id}`,
         role: 'user',
         messages: [message],
+        imageResultUrls,
       })
-      return turns
+      return accumulated
     }
 
-    const previous = turns[turns.length - 1]
+    const previous = accumulated[accumulated.length - 1]
     if (previous?.role === 'assistant') {
       previous.messages.push(message)
       previous.id = `msg-${message.id}`
-      return turns
+      return accumulated
     }
 
-    turns.push({
+    accumulated.push({
       key: `assistant-${message.id}`,
       id: `msg-${message.id}`,
       role: 'assistant',
       messages: [message],
+      imageResultUrls,
     })
-    return turns
+    return accumulated
   }, [])
+  // 集合在这一轮消息全部归位后再算一次，结果挂到 turn 上供渲染直接取用。
+  for (const turn of turns) {
+    for (const message of turn.messages) {
+      const result = parseImageToolResult(message)
+      if (result) turn.imageResultUrls.add(result.url)
+    }
+  }
+  return turns
 }
 
 function showToast(title: string) {
@@ -192,9 +219,50 @@ export default function Chat() {
   const [streamThought, setStreamThought] = useState('')
   const [streamTool, setStreamTool] = useState<StreamToolState | null>(null)
   const [streamImageResult, setStreamImageResult] = useState<GeneratedImageResult | null>(null)
+
+  // 流式增量的合并缓冲：上游一个 token 一个事件，若每个事件都 setState，
+  // 一次回答会触发上百次全量重渲染（历史消息 + Markdown 重解析 + 滚动）。
+  // 这里先在 ref 里累积，由下面的定时器按固定间隔统一提交，
+  // 把渲染次数从"token 数"压到"时间窗数"，文本本身不丢不乱序。
+  const answerBufferRef = useRef('')
+  const answerFlushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const flushAnswerBuffer = useCallback(() => {
+    if (answerFlushTimerRef.current) {
+      clearTimeout(answerFlushTimerRef.current)
+      answerFlushTimerRef.current = null
+    }
+    const buffered = answerBufferRef.current
+    if (!buffered) return
+    answerBufferRef.current = ''
+    setStreamAnswer(prev => prev + buffered)
+  }, [])
+
+  const scheduleAnswerFlush = useCallback(() => {
+    if (answerFlushTimerRef.current) return
+    answerFlushTimerRef.current = setTimeout(() => {
+      answerFlushTimerRef.current = null
+      const buffered = answerBufferRef.current
+      if (!buffered) return
+      answerBufferRef.current = ''
+      setStreamAnswer(prev => prev + buffered)
+    }, STREAM_FLUSH_INTERVAL)
+  }, [])
+
   const messages = active?.messages ?? EMPTY_MESSAGES
   const messageTurns = useMemo(() => groupMessagesIntoTurns(messages), [messages])
   const lastMessageId = messages[messages.length - 1]?.id
+
+  /**
+   * 折叠/展开思考过程。用 id 作为参数而不是为每条消息现造闭包，
+   * 这样引用始终稳定，MessagePart 的 memo 才能在流式重渲染时真正生效。
+   */
+  const toggleThought = useCallback((messageId: number) => {
+    setThoughtOpen(previous => ({
+      ...previous,
+      [messageId]: !previous[messageId],
+    }))
+  }, [])
 
   const closeStream = () => {
     streamRunRef.current = null
@@ -203,6 +271,12 @@ export default function Chat() {
   }
 
   const clearStreamState = () => {
+    // 先清缓冲与计时器：否则上一轮残留的增量会拼到下一轮回答的开头。
+    if (answerFlushTimerRef.current) {
+      clearTimeout(answerFlushTimerRef.current)
+      answerFlushTimerRef.current = null
+    }
+    answerBufferRef.current = ''
     setStreamAnswer('')
     setStreamThought('')
     setStreamTool(null)
@@ -236,17 +310,22 @@ export default function Chat() {
 
   const openStream = (id: number, runVersion: number) => {
     closeStream()
-    setStreamAnswer('')
-    setStreamThought('')
-    setStreamTool(null)
-    setStreamImageResult(null)
+    clearStreamState()
     streamRunRef.current = runVersion
     // WS 推全量 thought / 增量 answer_delta；终态到达后只读取一次持久化快照。
     const close = connectAgentStream(id, runVersion, {
       onEvent: ev => {
         if (ev.event === 'answer_delta') {
-          setStreamAnswer(prev => prev + String(ev.data ?? ''))
+          // 累积到缓冲里，由定时器统一提交；不再每个 token 触发一次渲染。
+          answerBufferRef.current += String(ev.data ?? '')
+          scheduleAnswerFlush()
         } else if (ev.event === 'answer') {
+          // 全量正文到达：丢弃缓冲（它必然包含在正文里），避免重复拼接。
+          if (answerFlushTimerRef.current) {
+            clearTimeout(answerFlushTimerRef.current)
+            answerFlushTimerRef.current = null
+          }
+          answerBufferRef.current = ''
           setStreamAnswer(String(ev.data ?? ''))
         } else if (ev.event === 'thought') {
           setStreamThought(String(ev.data ?? ''))
@@ -274,6 +353,8 @@ export default function Chat() {
         } else if (ev.event === 'tool_error') {
           setStreamTool(null)
         } else if (ev.event === 'complete' || ev.event === 'error') {
+          // 终态到达前把缓冲里的正文补上，避免最后一小段文字只存在于缓冲里。
+          flushAnswerBuffer()
           void applyTerminalSnapshot(id, runVersion)
         }
       },
@@ -306,6 +387,11 @@ export default function Chat() {
   useEffect(() => {
     return () => {
       closeStream()
+      // 卸载时清掉未提交的缓冲计时器，避免组件已销毁后仍触发 setState。
+      if (answerFlushTimerRef.current) {
+        clearTimeout(answerFlushTimerRef.current)
+        answerFlushTimerRef.current = null
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -338,10 +424,7 @@ export default function Chat() {
   useDidHide(() => {
     // tab 切换只触发 hide 不卸载页面：关闭事件流，回前台后重新读取快照并续接 WS。
     closeStream()
-    setStreamAnswer('')
-    setStreamThought('')
-    setStreamTool(null)
-    setStreamImageResult(null)
+    clearStreamState()
   })
 
   useEffect(() => {
@@ -370,10 +453,7 @@ export default function Chat() {
       activeIdRef.current = id
       Taro.setStorageSync(ACTIVE_KEY, id)
       setActive(snapshot)
-      setStreamAnswer('')
-      setStreamThought('')
-      setStreamTool(null)
-      setStreamImageResult(null)
+      clearStreamState()
       setRunning(snapshot.conversation.status === 'running')
       if (snapshot.conversation.status === 'running') {
         // 重新进入进行中的会话：恢复 WebSocket 事件流。
@@ -559,32 +639,19 @@ export default function Chat() {
             >
               <View className="chat-messages-inner">
                 <View className="chat-turn-list">
-                  {messageTurns.map(turn => {
-                    const imageResultUrls = new Set(
-                      turn.messages
-                        .map(parseImageToolResult)
-                        .filter((result): result is GeneratedImageResult => Boolean(result))
-                        .map(result => result.url),
-                    )
-                    return (
-                      <View id={turn.id} className={`chat-turn ${turn.role}`} key={turn.key}>
-                        {turn.messages.map(message => (
-                          <MessagePart
-                            key={message.id}
-                            message={message}
-                            imageResultUrls={imageResultUrls}
-                            open={Boolean(thoughtOpen[message.id])}
-                            onToggleThought={() =>
-                              setThoughtOpen(previous => ({
-                                ...previous,
-                                [message.id]: !previous[message.id],
-                              }))
-                            }
-                          />
-                        ))}
-                      </View>
-                    )
-                  })}
+                  {messageTurns.map(turn => (
+                    <View id={turn.id} className={`chat-turn ${turn.role}`} key={turn.key}>
+                      {turn.messages.map(message => (
+                        <MessagePart
+                          key={message.id}
+                          message={message}
+                          imageResultUrls={turn.imageResultUrls}
+                          open={Boolean(thoughtOpen[message.id])}
+                          onToggleThought={toggleThought}
+                        />
+                      ))}
+                    </View>
+                  ))}
                   {streamTool || streamImageResult || streamThought || streamAnswer || running ? (
                     <View className="chat-turn assistant is-streaming" role="status">
                       {streamTool?.name === IMAGE_TOOL ? (
@@ -727,7 +794,15 @@ export default function Chat() {
   )
 }
 
-function MessagePart({
+/**
+ * 一条消息的渲染单元。
+ *
+ * <p>用 memo 包住是关键：流式回答期间父组件会按时间窗重渲染，
+ * 若这里不 memo，每一条历史消息（以及它们的 Markdown 解析）
+ * 都会被重新计算一遍。props 全部是原始值或在父层稳定下来的引用，
+ * 因此浅比较足以挡住与历史消息无关的重渲染。</p>
+ */
+const MessagePart = memo(function MessagePart({
   message,
   imageResultUrls,
   open,
@@ -736,8 +811,14 @@ function MessagePart({
   message: AgentMessage
   imageResultUrls: Set<string>
   open: boolean
-  onToggleThought: () => void
+  /** 收 id 而不是闭包：父层因此能用同一个 useCallback 实例，memo 才挡得住。 */
+  onToggleThought: (messageId: number) => void
 }) {
+  const toggle = useCallback(
+    () => onToggleThought(message.id),
+    [onToggleThought, message.id],
+  )
+
   if (message.role === 'user' && message.kind === 'message') {
     return (
       <View className="msg-bubble user">
@@ -771,7 +852,7 @@ function MessagePart({
         role="button"
         ariaRole="button"
         ariaLabel="思考过程"
-        onClick={onToggleThought}
+        onClick={toggle}
       >
         <Text className="msg-thought-title">思考过程</Text>
         <Text>{open ? message.content : truncate(message.content, 120)}</Text>
@@ -804,7 +885,7 @@ function MessagePart({
       <Markdown content={message.content || '（空回复）'} />
     </View>
   )
-}
+})
 
 function ImageGenerationPanel({ message }: { message?: string }) {
   return (
