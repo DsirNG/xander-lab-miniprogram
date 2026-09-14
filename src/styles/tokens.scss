@@ -17,6 +17,9 @@ page {
   --color-danger-soft: #fdecef;
   --color-divider: rgba(29, 33, 41, 0.08);
   --color-overlay: rgba(29, 33, 41, 0.42);
+  --color-glass-surface: rgba(255, 255, 255, 0.72);
+  --color-glass-border: rgba(255, 255, 255, 0.88);
+  --color-glass-active: rgba(22, 119, 255, 0.12);
 
   /* Spacing */
   --space-1: 4px;
@@ -48,4 +51,5 @@ page {
   --radius-lg: 16px;
   --radius-pill: 999px;
   --shadow-floating: 0 12px 32px rgba(29, 33, 41, 0.1);
+  --shadow-glass: 0 10px 30px rgba(29, 33, 41, 0.12);
 }

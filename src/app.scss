@@ -36,7 +36,7 @@ button::after {
 
 .page {
   min-height: 100vh;
-  padding: 0 var(--space-5) calc(72px + env(safe-area-inset-bottom, 0px));
+  padding: 0 var(--space-5) calc(88px + env(safe-area-inset-bottom, 0px));
   background: var(--color-canvas);
 }
 

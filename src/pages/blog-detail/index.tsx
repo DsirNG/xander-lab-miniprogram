@@ -73,7 +73,7 @@ export default function BlogDetail() {
                   className="tag"
                   key={tag}
                   onClick={() =>
-                    Taro.redirectTo({ url: `/pages/blog/index?tag=${encodeURIComponent(tag)}` })
+                    Taro.switchTab({ url: `/pages/blog/index?tag=${encodeURIComponent(tag)}` })
                   }
                 >
                   {tag}

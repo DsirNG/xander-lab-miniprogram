@@ -3,9 +3,9 @@ import Taro, { useDidShow, useReachBottom } from '@tarojs/taro'
 import { useCallback, useState } from 'react'
 import { planApi, type Plan } from '@/api/plans'
 import { PlanCard } from '@/components/PlanCard'
-import { TabBar } from '@/components/TabBar'
 import { NavBar } from '@/components/NavBar'
 import { Icon } from '@/components/Icon'
+import { useTabBarPage } from '@/hooks/useTabBarPage'
 import { useUserStore } from '@/store/user'
 import './index.scss'
 
@@ -16,6 +16,8 @@ function showToast(title: string) {
 }
 
 export default function Plans() {
+  useTabBarPage('calendar')
+
   const user = useUserStore(state => state.user)
   const userLoaded = useUserStore(state => state.loaded)
   const refreshUser = useUserStore(state => state.refresh)
@@ -116,7 +118,6 @@ export default function Plans() {
       <View className="page plans-page">
         <NavBar title="计划" />
         <Text className="data-state">正在同步计划...</Text>
-        <TabBar active="calendar" />
       </View>
     )
   }
@@ -135,7 +136,6 @@ export default function Plans() {
             去登录
           </View>
         </View>
-        <TabBar active="calendar" />
       </View>
     )
   }
@@ -174,7 +174,6 @@ export default function Plans() {
       {loadedOnce && !loading && plans.length > 0 && plans.length >= total ? (
         <Text className="data-state">已展示全部计划</Text>
       ) : null}
-      <TabBar active="calendar" />
     </View>
   )
 }

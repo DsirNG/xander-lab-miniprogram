@@ -1,33 +1,36 @@
 import { View, Text } from '@tarojs/components'
-import Taro from '@tarojs/taro'
+import { TAB_ITEMS, type TabItem, type TabKey } from '@/utils/tabBarRoute'
 import { Icon } from './Icon'
 import './TabBar.scss'
 
-const items = [
-  ['chat', '对话', '/pages/chat/index'],
-  ['calendar', '计划', '/pages/plans/index'],
-  ['article', '博客', '/pages/blog/index'],
-  ['user', '我的', '/pages/profile/index'],
-] as const
-
-export function TabBar({ active }: { active: string }) {
-  const handleNavigate = (icon: string, url: string) => {
-    if (active === icon) return
-    Taro.redirectTo({ url })
+export function TabBar({
+  active,
+  onNavigate,
+}: {
+  active: TabKey
+  onNavigate: (item: TabItem) => void
+}) {
+  const handleNavigate = (item: TabItem) => {
+    if (active === item.key) return
+    onNavigate(item)
   }
 
+  const activeIndex = TAB_ITEMS.findIndex(item => item.key === active)
+  const safeActiveIndex = Math.max(activeIndex, 0)
+
   return (
-    <View className="tab-bar-placeholder">
-      <View className="tab-bar">
-        {items.map(([icon, label, url]) => (
+    <View className="tab-bar">
+      <View className="tab-list">
+        <View className={`active-pill active-pill--${safeActiveIndex}`} />
+        {TAB_ITEMS.map(item => (
           <View
-            className={`tab-item ${active === icon ? 'active' : ''}`}
-            key={url}
+            className={`tab-item ${active === item.key ? 'active' : ''}`}
+            key={item.url}
             hoverClass="tab-item--pressed"
-            onClick={() => handleNavigate(icon, url)}
+            onClick={() => handleNavigate(item)}
           >
-            <Icon name={icon as any} />
-            <Text>{label}</Text>
+            <Icon name={item.icon} />
+            <Text>{item.label}</Text>
           </View>
         ))}
       </View>

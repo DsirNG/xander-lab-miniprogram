@@ -50,16 +50,6 @@
   box-sizing: border-box;
 }
 
-.chat-page > .tab-bar-placeholder {
-  flex-shrink: 0;
-}
-
-// The chat page applies border-box to all nested views. Restore the shared
-// TabBar sizing so its bottom safe-area padding remains visible like other tabs.
-.chat-page .tab-bar {
-  box-sizing: content-box;
-}
-
 // NavBar 默认 position: fixed，在页面根级容器里使用 fixed 存在渲染层不确定因素，
 // 这里改为 absolute：shell 为 relative 全屏容器，视觉一致。
 .chat-page .nav-bar {

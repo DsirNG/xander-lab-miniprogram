@@ -18,9 +18,9 @@ import {
 import { connectAgentStream } from '@/api/agentSocket'
 import { API_ORIGIN, tokenStorage } from '@/api/http'
 import { Markdown } from '@/components/Markdown'
-import { TabBar } from '@/components/TabBar'
 import { NavBar } from '@/components/NavBar'
 import { Icon } from '@/components/Icon'
+import { useTabBarPage } from '@/hooks/useTabBarPage'
 import { ensureLogin, useUserStore } from '@/store/user'
 import { truncate } from '@/utils/markdown'
 import { t } from '@/i18n'
@@ -131,6 +131,8 @@ function showToast(title: string) {
 }
 
 export default function Chat() {
+  useTabBarPage('chat')
+
   const user = useUserStore(state => state.user)
   const refreshUser = useUserStore(state => state.refresh)
 
@@ -786,10 +788,9 @@ export default function Chat() {
         activeId={activeIdRef.current}
         onSelect={openConversation}
         onNewChat={startNewChat}
-        onNavigate={url => Taro.redirectTo({ url })}
+        onNavigate={url => Taro.switchTab({ url })}
         user={user}
       />
-      <TabBar active="chat" />
     </View>
   )
 }
@@ -814,10 +815,7 @@ const MessagePart = memo(function MessagePart({
   /** 收 id 而不是闭包：父层因此能用同一个 useCallback 实例，memo 才挡得住。 */
   onToggleThought: (messageId: number) => void
 }) {
-  const toggle = useCallback(
-    () => onToggleThought(message.id),
-    [onToggleThought, message.id],
-  )
+  const toggle = useCallback(() => onToggleThought(message.id), [onToggleThought, message.id])
 
   if (message.role === 'user' && message.kind === 'message') {
     return (

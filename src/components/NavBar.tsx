@@ -8,6 +8,13 @@ import './NavBar.scss'
 /** 无上一级页面时的兜底目的地：对话页 */
 const HOME_URL = '/pages/chat/index'
 
+function switchToHome() {
+  Taro.switchTab({
+    url: HOME_URL,
+    fail: () => Taro.reLaunch({ url: HOME_URL }),
+  })
+}
+
 function getCurrentPageCount(): number {
   try {
     return Taro.getCurrentPages().length
@@ -50,12 +57,12 @@ export function NavBar({
     if (canGoBack) {
       Taro.navigateBack({
         fail: () => {
-          Taro.reLaunch({ url: HOME_URL })
+          switchToHome()
         },
       })
       return
     }
-    Taro.reLaunch({ url: HOME_URL })
+    switchToHome()
   }
 
   const barStyle: CSSProperties = {

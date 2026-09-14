@@ -2,8 +2,8 @@ import { Image, Text, View } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState } from 'react'
 import { Icon } from '@/components/Icon'
-import { TabBar } from '@/components/TabBar'
 import { NavBar } from '@/components/NavBar'
+import { useTabBarPage } from '@/hooks/useTabBarPage'
 import { authApi } from '@/api/auth'
 import { profileApi } from '@/api/profile'
 import { formatPoints } from '@/api/points'
@@ -40,6 +40,8 @@ function ProfileMenuRow({
 }
 
 export default function Profile() {
+  useTabBarPage('user')
+
   const user = useUserStore(state => state.user)
   const setUser = useUserStore(state => state.setUser)
   const [balance, setBalance] = useState<number | null>(null)
@@ -69,6 +71,10 @@ export default function Profile() {
   })
 
   const navigate = (url: string) => {
+    if (url === '/pages/plans/index') {
+      Taro.switchTab({ url })
+      return
+    }
     Taro.navigateTo({ url })
   }
 
@@ -204,8 +210,6 @@ export default function Profile() {
           onClick={() => navigateForUser('/pages/account-settings/index')}
         />
       </View>
-
-      <TabBar active="user" />
     </View>
   )
 }

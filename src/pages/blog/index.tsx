@@ -1,11 +1,11 @@
 import { Input, ScrollView, Text, View } from '@tarojs/components'
-import Taro, { useReachBottom, useRouter } from '@tarojs/taro'
+import Taro, { useDidShow, useReachBottom, useRouter } from '@tarojs/taro'
 import { useCallback, useEffect, useState } from 'react'
 import { blogApi, type Article, type Category, type Tag } from '@/api/blog'
 import { ArticleCard } from '@/components/ArticleCard'
-import { TabBar } from '@/components/TabBar'
 import { NavBar } from '@/components/NavBar'
 import { Icon } from '@/components/Icon'
+import { useTabBarPage } from '@/hooks/useTabBarPage'
 import './index.scss'
 
 const PAGE_SIZE = 10
@@ -15,6 +15,8 @@ function showToast(title: string) {
 }
 
 export default function Blog() {
+  useTabBarPage('article')
+
   const { params } = useRouter()
   const [articles, setArticles] = useState<Article[]>([])
   const [categories, setCategories] = useState<Category[]>([])
@@ -181,7 +183,6 @@ export default function Blog() {
       {loadedOnce && !loading && articles.length > 0 && articles.length >= total ? (
         <Text className="data-state">已展示全部文章</Text>
       ) : null}
-      <TabBar active="article" />
     </View>
   )
 }
