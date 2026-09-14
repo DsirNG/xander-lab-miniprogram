@@ -5,6 +5,7 @@ import { blogApi, type Article } from '@/api/blog'
 import { Icon } from '@/components/Icon'
 import { Markdown } from '@/components/Markdown'
 import { NavBar } from '@/components/NavBar'
+import { useTabBarStore } from '@/store/tabBar'
 import './index.scss'
 
 export default function BlogDetail() {
@@ -13,6 +14,22 @@ export default function BlogDetail() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const id = params.id
+
+  const handleTagClick = (tag: string) => {
+    const pages = Taro.getCurrentPages()
+    const opener = pages[pages.length - 2]
+    if (opener?.route === 'pages/main/index') {
+      useTabBarStore.getState().setPendingBlogTag(tag)
+      Taro.navigateBack({
+        fail: () => useTabBarStore.getState().setPendingBlogTag(null),
+      })
+      return
+    }
+
+    void Taro.reLaunch({
+      url: `/pages/main/index?tab=article&tag=${encodeURIComponent(tag)}`,
+    })
+  }
 
   useEffect(() => {
     if (!id) {
@@ -69,13 +86,7 @@ export default function BlogDetail() {
           {article.tags.length > 0 ? (
             <View className="tags detail-tags">
               {article.tags.map(tag => (
-                <Text
-                  className="tag"
-                  key={tag}
-                  onClick={() =>
-                    Taro.switchTab({ url: `/pages/blog/index?tag=${encodeURIComponent(tag)}` })
-                  }
-                >
+                <Text className="tag" key={tag} onClick={() => handleTagClick(tag)}>
                   {tag}
                 </Text>
               ))}

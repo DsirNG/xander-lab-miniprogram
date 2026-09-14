@@ -6,13 +6,10 @@ import { Icon } from './Icon'
 import './NavBar.scss'
 
 /** 无上一级页面时的兜底目的地：对话页 */
-const HOME_URL = '/pages/chat/index'
+const HOME_URL = '/pages/main/index?tab=chat'
 
 function switchToHome() {
-  Taro.switchTab({
-    url: HOME_URL,
-    fail: () => Taro.reLaunch({ url: HOME_URL }),
-  })
+  void Taro.reLaunch({ url: HOME_URL })
 }
 
 function getCurrentPageCount(): number {

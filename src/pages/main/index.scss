@@ -1,0 +1,114 @@
+.main-shell {
+  position: relative;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--color-canvas);
+}
+
+.main-shell__content {
+  position: absolute;
+  top: 0;
+  right: 0;
+  /* Let page content continue beneath the floating iOS-style TabBar. */
+  bottom: 0;
+  left: 0;
+  overflow: hidden;
+}
+
+.main-panel {
+  display: none;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  box-sizing: border-box;
+  padding: 72px var(--space-6) 40px;
+  background: var(--color-canvas);
+}
+
+.main-panel.is-active {
+  display: block;
+}
+
+.main-panel__scroll {
+  width: 100%;
+  height: 100%;
+}
+
+.main-panel--chat {
+  background: linear-gradient(180deg, #f7fbff 0%, var(--color-canvas) 48%);
+}
+
+.main-panel--calendar {
+  background: linear-gradient(180deg, #fffaf2 0%, var(--color-canvas) 48%);
+}
+
+.main-panel--article {
+  background: linear-gradient(180deg, #f8f5ff 0%, var(--color-canvas) 48%);
+}
+
+.main-panel--user {
+  background: linear-gradient(180deg, #f5fbf8 0%, var(--color-canvas) 48%);
+}
+
+/* Migrated feature pages already own their page padding. */
+.main-panel--calendar,
+.main-panel--user,
+.main-panel--article,
+.main-panel--chat {
+  padding: 0;
+}
+
+/* Chat's composer must remain above the floating TabBar while messages can
+ * still scroll underneath it. */
+.main-panel--chat .chat-composer-dock {
+  padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+}
+
+.main-panel__eyebrow {
+  margin-bottom: var(--space-3);
+  color: var(--color-accent);
+  font-size: var(--text-micro);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.main-panel__key {
+  display: block;
+  margin-bottom: var(--space-2);
+  color: var(--color-ink-muted);
+  font-family: monospace;
+  font-size: var(--text-micro);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.main-panel__title {
+  display: block;
+  color: var(--color-ink);
+  font-size: var(--text-display);
+  font-weight: 800;
+  line-height: var(--leading-display);
+}
+
+.main-panel__description {
+  display: block;
+  margin-top: var(--space-3);
+  color: var(--color-ink-muted);
+  font-size: var(--text-body);
+  line-height: var(--leading-body);
+}
+
+.main-panel__placeholder {
+  height: 128px;
+  margin-top: 48px;
+  border-radius: var(--radius-lg);
+  background: rgba(255, 255, 255, 0.76);
+  box-shadow: var(--shadow-floating);
+}
+
+.main-panel__placeholder--short {
+  height: 72px;
+  margin-top: var(--space-4);
+}

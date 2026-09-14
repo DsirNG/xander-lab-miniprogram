@@ -2,6 +2,7 @@ export default defineAppConfig({
   // React custom-tab-bar is not supported by the Skyline renderer yet.
   renderer: 'webview',
   pages: [
+    'pages/main/index',
     'pages/chat/index',
     'pages/plans/index',
     'pages/blog/index',
@@ -24,19 +25,6 @@ export default defineAppConfig({
     'pages/recitation-report/index',
     'pages/recitation-history/index',
   ],
-  tabBar: {
-    custom: true,
-    color: '#86909c',
-    selectedColor: '#1677ff',
-    backgroundColor: '#ffffff',
-    borderStyle: 'white',
-    list: [
-      { pagePath: 'pages/chat/index', text: '对话' },
-      { pagePath: 'pages/plans/index', text: '计划' },
-      { pagePath: 'pages/blog/index', text: '博客' },
-      { pagePath: 'pages/profile/index', text: '我的' },
-    ],
-  },
   window: {
     navigationStyle: 'custom',
     navigationBarBackgroundColor: '#ffffff',
