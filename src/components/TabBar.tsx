@@ -51,7 +51,7 @@ export function TabBar({
         {TAB_ITEMS.map(item => (
           <View
             className={`tab-item ${active === item.key ? 'active' : ''}`}
-            key={item.url}
+            key={item.key}
             hoverClass="tab-item--pressed"
             onClick={() => handleNavigate(item)}
           >

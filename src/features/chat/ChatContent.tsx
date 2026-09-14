@@ -24,7 +24,7 @@ import { usePanelActive } from '@/hooks/usePanelActive'
 import { ensureLogin, useUserStore } from '@/store/user'
 import { truncate } from '@/utils/markdown'
 import { t } from '@/i18n'
-import { getTabKeyByPath, type TabKey } from '@/utils/tabBarRoute'
+import type { TabKey } from '@/utils/tabBarRoute'
 import { ChatComposer } from '@/pages/chat/components/ChatComposer'
 import { ChatDrawer } from '@/pages/chat/components/ChatDrawer'
 import {
@@ -622,17 +622,12 @@ export function ChatContent({ panelActive, onMainTabNavigate }: ChatContentProps
     }
   }
 
-  const navigateTopLevel = (url: string) => {
-    const tab = getTabKeyByPath(url)
-    if (tab && onMainTabNavigate) {
+  const navigateTopLevel = (tab: TabKey) => {
+    if (onMainTabNavigate) {
       onMainTabNavigate(tab)
       return
     }
-    if (tab) {
-      void Taro.reLaunch({ url: `/pages/main/index?tab=${tab}` })
-      return
-    }
-    void Taro.navigateTo({ url })
+    void Taro.reLaunch({ url: `/pages/main/index?tab=${tab}` })
   }
 
   return (

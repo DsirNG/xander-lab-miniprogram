@@ -12,6 +12,7 @@ import type { AgentConversation } from '@/api/agent'
 import type { UserInfo } from '@/store/user'
 import { useCallback, useRef, useState } from 'react'
 import { useNavbarLayout } from '@/hooks/useNavbarLayout'
+import type { TabKey } from '@/utils/tabBarRoute'
 
 interface ChatDrawerProps {
   visible: boolean
@@ -21,15 +22,15 @@ interface ChatDrawerProps {
   activeId: number | null
   onSelect: (id: number) => void
   onNewChat: () => void
-  onNavigate: (url: string) => void
+  onNavigate: (tab: TabKey) => void
   user: UserInfo | null
 }
 
 const PRODUCT_MENUS = [
-  { name: '内容计划', icon: 'calendar', url: '/pages/plans/index' },
-  { name: '浏览博客', icon: 'article', url: '/pages/blog/index' },
-  { name: '个人中心', icon: 'user', url: '/pages/profile/index' },
-]
+  { name: '内容计划', icon: 'calendar', tab: 'calendar' },
+  { name: '浏览博客', icon: 'article', tab: 'article' },
+  { name: '个人中心', icon: 'user', tab: 'user' },
+] as const
 
 export function ChatDrawer({
   visible,
@@ -136,13 +137,13 @@ export function ChatDrawer({
           <View className="drawer-menu-list">
             {PRODUCT_MENUS.map(menu => (
               <View
-                key={menu.url}
+                key={menu.tab}
                 className="drawer-menu-item"
                 role="button"
                 ariaRole="button"
                 ariaLabel={menu.name}
                 onClick={() => {
-                  onNavigate(menu.url)
+                  onNavigate(menu.tab)
                   onClose()
                 }}
               >
@@ -192,7 +193,7 @@ export function ChatDrawer({
             ariaRole="button"
             ariaLabel={PRODUCT_MENUS[2].name}
             onClick={() => {
-              onNavigate('/pages/profile/index')
+              onNavigate('user')
               onClose()
             }}
           >

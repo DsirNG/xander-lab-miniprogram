@@ -1,12 +1,7 @@
 export default defineAppConfig({
-  // React custom-tab-bar is not supported by the Skyline renderer yet.
   renderer: 'webview',
   pages: [
     'pages/main/index',
-    'pages/chat/index',
-    'pages/plans/index',
-    'pages/blog/index',
-    'pages/profile/index',
     'pages/login/index',
     'pages/scan-login/index',
     'pages/blog-detail/index',

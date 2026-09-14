@@ -1,19 +1,17 @@
 import { describe, expect, it } from 'vitest'
-import { getTabKeyByPath, normalizeTabPath } from './tabBarRoute'
+import { TAB_ITEMS } from './tabBarRoute'
 
-describe('tab bar route matching', () => {
-  it('normalizes leading slashes, query parameters, hashes, and trailing slashes', () => {
-    expect(normalizeTabPath('/pages/plans/index?from=profile#top')).toBe('pages/plans/index')
+describe('main shell tab metadata', () => {
+  it('keeps the four tabs in their visual order', () => {
+    expect(TAB_ITEMS.map(item => item.key)).toEqual([
+      'chat',
+      'calendar',
+      'article',
+      'user',
+    ])
   })
 
-  it('maps every main tab route to its tab key', () => {
-    expect(getTabKeyByPath('/pages/chat/index')).toBe('chat')
-    expect(getTabKeyByPath('pages/plans/index?from=profile')).toBe('calendar')
-    expect(getTabKeyByPath('/pages/blog/index/')).toBe('article')
-    expect(getTabKeyByPath('/pages/profile/index')).toBe('user')
-  })
-
-  it('does not guess a main tab for unrelated pages', () => {
-    expect(getTabKeyByPath('/pages/blog-detail/index?id=1')).toBeUndefined()
+  it('contains no page URL navigation contract', () => {
+    expect(TAB_ITEMS.every(item => !('url' in item))).toBe(true)
   })
 })

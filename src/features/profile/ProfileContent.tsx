@@ -9,7 +9,7 @@ import { NavBar } from '@/components/NavBar'
 import { usePanelActive } from '@/hooks/usePanelActive'
 import { t } from '@/i18n'
 import { useUserStore } from '@/store/user'
-import { TAB_ITEMS, type TabKey } from '@/utils/tabBarRoute'
+import type { TabKey } from '@/utils/tabBarRoute'
 
 function showToast(title: string) {
   Taro.showToast({ title, icon: 'none' })
@@ -86,21 +86,16 @@ export function ProfileContent({ active, onMainTabNavigate }: ProfileContentProp
         return
       }
 
-      const item = TAB_ITEMS.find(candidate => candidate.key === tab)
-      if (item) void Taro.reLaunch({ url: `/pages/main/index?tab=${item.key}` })
+      void Taro.reLaunch({ url: `/pages/main/index?tab=${tab}` })
     },
     [onMainTabNavigate],
   )
 
   const navigate = useCallback(
     (url: string) => {
-      if (url === '/pages/plans/index') {
-        navigateMainTab('calendar')
-        return
-      }
       void Taro.navigateTo({ url })
     },
-    [navigateMainTab],
+    [],
   )
 
   const navigateForUser = useCallback(
@@ -214,7 +209,7 @@ export function ProfileContent({ active, onMainTabNavigate }: ProfileContentProp
         <ProfileMenuRow
           icon="calendar"
           label={t('profile.plans')}
-          onClick={() => navigateForUser('/pages/plans/index')}
+          onClick={() => (user ? navigateMainTab('calendar') : navigate('/pages/login/index'))}
         />
         <ProfileMenuRow
           icon="article"
