@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { View, Text } from '@tarojs/components'
 import { TAB_ITEMS, type TabItem, type TabKey } from '@/utils/tabBarRoute'
-import { Icon } from './Icon'
+import { AnimatedIcon } from './AnimatedIcon'
 import './TabBar.scss'
 
 export function TabBar({
@@ -55,7 +55,7 @@ export function TabBar({
             hoverClass="tab-item--pressed"
             onClick={() => handleNavigate(item)}
           >
-            <Icon name={item.icon} />
+            <AnimatedIcon name={item.icon} active={active === item.key} className="tab-icon" />
             <Text>{item.label}</Text>
           </View>
         ))}

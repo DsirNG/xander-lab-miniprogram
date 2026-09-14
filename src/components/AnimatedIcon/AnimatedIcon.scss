@@ -1,0 +1,36 @@
+.animated-icon-wrap {
+  position: relative;
+  display: block;
+  flex: 0 0 auto;
+}
+
+.animated-icon {
+  display: block;
+  opacity: 0.72;
+  pointer-events: none;
+  transition: opacity 160ms ease;
+}
+
+.animated-icon--canvas-ready {
+  opacity: 0;
+}
+
+.animated-icon__canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 21px;
+  height: 21px;
+  opacity: 1;
+  pointer-events: none;
+}
+
+.animated-icon__canvas--hidden {
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animated-icon {
+    transition: none;
+  }
+}

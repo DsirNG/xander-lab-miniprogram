@@ -85,10 +85,9 @@
   transition: color 160ms ease;
 }
 
-.tab-item .icon {
+.tab-item .animated-icon-wrap {
   width: 21px;
   height: 21px;
-  opacity: 0.72;
   transition:
     opacity 160ms ease,
     transform 160ms ease;
@@ -99,12 +98,6 @@
   font-weight: 600;
 }
 
-.tab-item.active .icon {
-  opacity: 1;
-  filter: brightness(0) saturate(100%) invert(40%) sepia(94%) saturate(3541%) hue-rotate(207deg)
-    brightness(101%) contrast(101%);
-}
-
 .tab-item--pressed {
   transform: scale(0.96);
 }
@@ -112,7 +105,8 @@
 @media (prefers-reduced-motion: reduce) {
   .active-pill,
   .tab-item,
-  .tab-item .icon {
+  .tab-item .animated-icon-wrap,
+  .animated-icon {
     transition: none;
   }
 }
