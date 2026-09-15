@@ -24,7 +24,6 @@ import { usePanelActive } from '@/hooks/usePanelActive'
 import { ensureLogin, useUserStore } from '@/store/user'
 import { truncate } from '@/utils/markdown'
 import { t } from '@/i18n'
-import type { TabKey } from '@/utils/tabBarRoute'
 import { ChatComposer } from '@/pages/chat/components/ChatComposer'
 import { ChatDrawer } from '@/pages/chat/components/ChatDrawer'
 import {
@@ -133,10 +132,9 @@ function showToast(title: string) {
 
 type ChatContentProps = {
   panelActive: boolean
-  onMainTabNavigate?: (tab: TabKey) => void
 }
 
-export function ChatContent({ panelActive, onMainTabNavigate }: ChatContentProps) {
+export function ChatContent({ panelActive }: ChatContentProps) {
   const user = useUserStore(state => state.user)
   const refreshUser = useUserStore(state => state.refresh)
 
@@ -622,14 +620,6 @@ export function ChatContent({ panelActive, onMainTabNavigate }: ChatContentProps
     }
   }
 
-  const navigateTopLevel = (tab: TabKey) => {
-    if (onMainTabNavigate) {
-      onMainTabNavigate(tab)
-      return
-    }
-    void Taro.reLaunch({ url: `/pages/main/index?tab=${tab}` })
-  }
-
   return (
     <View className="chat-page">
       <View
@@ -815,7 +805,6 @@ export function ChatContent({ panelActive, onMainTabNavigate }: ChatContentProps
         activeId={activeIdRef.current}
         onSelect={openConversation}
         onNewChat={startNewChat}
-        onNavigate={navigateTopLevel}
         user={user}
       />
     </View>

@@ -21,7 +21,6 @@ type AnimatedIconProps = {
   className?: string
   size?: number
   activeColor?: string
-  inactiveColor?: string
 }
 
 export function AnimatedIcon({
@@ -29,8 +28,7 @@ export function AnimatedIcon({
   active,
   className = '',
   size = 21,
-  activeColor = '#1677ff',
-  inactiveColor = '#86909c',
+  activeColor = '#1d2129',
 }: AnimatedIconProps) {
   const canvasIdRef = useRef(`animated-icon-${idSeed++}`)
   const runtimeRef = useRef<Awaited<ReturnType<typeof getCanvasRuntime>>>(null)
@@ -43,20 +41,36 @@ export function AnimatedIcon({
     const runtime = runtimeRef.current
     if (!runtime) return
 
-    drawIcon(runtime, definition, progress, inactiveColor, activeColor)
+    drawIcon(runtime, definition, progress, activeColor)
   }
 
   useEffect(() => {
     let cancelled = false
 
     getCanvasRuntime(canvasIdRef.current, size).then(runtime => {
-      if (cancelled || !runtime) return
+      if (cancelled || !runtime) {
+        console.warn('[AnimatedIcon] CANVAS_FALLBACK', {
+          name,
+          canvasId: canvasIdRef.current,
+        })
+        return
+      }
       try {
         runtimeRef.current = runtime
         render(progressRef.current)
         setCanvasReady(true)
+        console.log('[AnimatedIcon] CANVAS_READY', {
+          name,
+          canvasId: canvasIdRef.current,
+          size: runtime.size,
+          ratio: runtime.ratio,
+        })
       } catch {
         runtimeRef.current = null
+        console.warn('[AnimatedIcon] CANVAS_DRAW_FAILED', {
+          name,
+          canvasId: canvasIdRef.current,
+        })
       }
     })
 
@@ -67,14 +81,28 @@ export function AnimatedIcon({
   }, [name, size])
 
   useEffect(() => {
+    if (timerRef.current) clearInterval(timerRef.current)
+    timerRef.current = null
+
+    if (!active) {
+      progressRef.current = 0
+      render(0)
+      return
+    }
+
     if (!runtimeRef.current) return
 
-    if (timerRef.current) clearInterval(timerRef.current)
-
-    const target = active ? 1 : 0
+    const target = 1
     const start = progressRef.current
     const startedAt = Date.now()
-    const duration = 180
+    const duration = 2000
+
+    console.log('[AnimatedIcon] ANIMATION_START', {
+      name,
+      active,
+      from: start,
+      to: target,
+    })
 
     timerRef.current = setInterval(() => {
       const elapsed = Math.min(1, (Date.now() - startedAt) / duration)
@@ -93,15 +121,15 @@ export function AnimatedIcon({
       if (timerRef.current) clearInterval(timerRef.current)
       timerRef.current = null
     }
-  }, [active, activeColor, inactiveColor, definition])
+  }, [active, activeColor, definition])
 
   return (
     <View
-      className={`animated-icon-wrap ${className}`}
+      className={`animated-icon-wrap ${className} ${active ? 'animated-icon-wrap--active' : ''}`}
       style={{ width: `${size}px`, height: `${size}px` }}
     >
       <Image
-        className={`animated-icon ${canvasReady ? 'animated-icon--canvas-ready' : ''}`}
+        className={`animated-icon ${canvasReady && active ? 'animated-icon--canvas-active' : ''}`}
         src={fallbackIcons[name]}
         mode="aspectFit"
         style={{ width: `${size}px`, height: `${size}px` }}
@@ -109,7 +137,7 @@ export function AnimatedIcon({
       <Canvas
         id={canvasIdRef.current}
         type="2d"
-        className={`animated-icon__canvas ${canvasReady ? '' : 'animated-icon__canvas--hidden'}`}
+        className={`animated-icon__canvas ${canvasReady && active ? '' : 'animated-icon__canvas--hidden'}`}
         style={{ width: `${size}px`, height: `${size}px` }}
       />
     </View>

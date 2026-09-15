@@ -48,6 +48,22 @@ const article: IconDefinition = {
     {
       type: 'path',
       role: 'draw',
+      commands: [
+        { type: 'M', x: 14, y: 2 },
+        { type: 'L', x: 6, y: 2 },
+        { type: 'C', x1: 4.9, y1: 2, x2: 4, y2: 2.9, x: 4, y: 4 },
+        { type: 'L', x: 4, y: 20 },
+        { type: 'C', x1: 4, y1: 21.1, x2: 4.9, y2: 22, x: 6, y: 22 },
+        { type: 'L', x: 18, y: 22 },
+        { type: 'C', x1: 19.1, y1: 22, x2: 20, y2: 21.1, x: 20, y: 20 },
+        { type: 'L', x: 20, y: 8 },
+        { type: 'L', x: 14, y: 2 },
+        { type: 'Z' },
+      ],
+    },
+    {
+      type: 'path',
+      role: 'draw',
       length: 8,
       commands: [
         { type: 'M', x: 14, y: 2 },

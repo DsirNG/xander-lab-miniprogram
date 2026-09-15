@@ -8,6 +8,7 @@ import { Icon } from '@/components/Icon'
 import { NavBar } from '@/components/NavBar'
 import { usePanelActive } from '@/hooks/usePanelActive'
 import { t } from '@/i18n'
+import { navigateToTab } from '@/store/tabBar'
 import { useUserStore } from '@/store/user'
 import type { TabKey } from '@/utils/tabBarRoute'
 
@@ -42,11 +43,9 @@ function ProfileMenuRow({
 export type ProfileContentProps = {
   /** True while the Profile panel is the visible MainShell panel. */
   active: boolean
-  /** MainShell handles top-level Tab changes without switchTab. */
-  onMainTabNavigate?: (tab: TabKey) => void
 }
 
-export function ProfileContent({ active, onMainTabNavigate }: ProfileContentProps) {
+export function ProfileContent({ active }: ProfileContentProps) {
   const user = useUserStore(state => state.user)
   const setUser = useUserStore(state => state.setUser)
   const [balance, setBalance] = useState<number | null>(null)
@@ -79,24 +78,11 @@ export function ProfileContent({ active, onMainTabNavigate }: ProfileContentProp
 
   usePanelActive(active, { onShow: refreshOverview })
 
-  const navigateMainTab = useCallback(
-    (tab: TabKey) => {
-      if (onMainTabNavigate) {
-        onMainTabNavigate(tab)
-        return
-      }
+  const navigateMainTab = useCallback((tab: TabKey) => navigateToTab(tab), [])
 
-      void Taro.reLaunch({ url: `/pages/main/index?tab=${tab}` })
-    },
-    [onMainTabNavigate],
-  )
-
-  const navigate = useCallback(
-    (url: string) => {
-      void Taro.navigateTo({ url })
-    },
-    [],
-  )
+  const navigate = useCallback((url: string) => {
+    void Taro.navigateTo({ url })
+  }, [])
 
   const navigateForUser = useCallback(
     (url: string) => {

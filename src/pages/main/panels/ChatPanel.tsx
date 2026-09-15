@@ -1,15 +1,13 @@
 import { View } from '@tarojs/components'
 import { useEffect, useRef } from 'react'
 import { ChatContent } from '@/features/chat/ChatContent'
-import type { TabKey } from '@/utils/tabBarRoute'
 
 type ChatPanelProps = {
   active: boolean
-  onMainTabNavigate: (tab: TabKey) => void
 }
 
 /** Chat business content hosted inside the persistent MainShell. */
-export function ChatPanel({ active, onMainTabNavigate }: ChatPanelProps) {
+export function ChatPanel({ active }: ChatPanelProps) {
   const renderCountRef = useRef(0)
   renderCountRef.current += 1
 
@@ -32,7 +30,7 @@ export function ChatPanel({ active, onMainTabNavigate }: ChatPanelProps) {
 
   return (
     <View className={`main-panel main-panel--chat ${active ? 'is-active' : ''}`} hidden={!active}>
-      <ChatContent panelActive={active} onMainTabNavigate={onMainTabNavigate} />
+      <ChatContent panelActive={active} />
     </View>
   )
 }

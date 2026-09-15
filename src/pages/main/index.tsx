@@ -1,9 +1,9 @@
 import { View } from '@tarojs/components'
-import Taro, { useDidShow, useLoad } from '@tarojs/taro'
+import { useDidShow, useLoad } from '@tarojs/taro'
 import { useEffect, useRef, useState } from 'react'
 import { TabBar } from '@/components/TabBar'
 import { useTabBarStore } from '@/store/tabBar'
-import { TAB_ITEMS, type TabItem, type TabKey } from '@/utils/tabBarRoute'
+import { TAB_ITEMS, type TabKey } from '@/utils/tabBarRoute'
 import { ChatPanel } from './panels/ChatPanel'
 import { ProfilePanel } from './panels/ProfilePanel'
 import { PlansPanel } from './panels/PlansPanel'
@@ -71,29 +71,16 @@ export default function MainPage() {
     markVisited(active)
   }, [active])
 
-  const handleNavigate = (item: TabItem) => {
-    if (item.key === active) return
-
-    markVisited(item.key)
-    setActive(item.key)
-    void Taro.vibrateShort({ type: 'light' }).catch(() => undefined)
-  }
-
-  const handleMainTabNavigate = (tab: TabKey) => {
-    const item = TAB_ITEMS.find(candidate => candidate.key === tab)
-    if (item) handleNavigate(item)
-  }
-
   return (
     <View className="main-shell">
       <View className="main-shell__content">
-        <ChatPanel active={active === 'chat'} onMainTabNavigate={handleMainTabNavigate} />
+        <ChatPanel active={active === 'chat'} />
 
-        {visited.has('calendar') ? (
+        {visited.has('calendar') || active === 'calendar' ? (
           <PlansPanel active={active === 'calendar'} pageShowCount={pageShowCount} />
         ) : null}
 
-        {visited.has('article') ? (
+        {visited.has('article') || active === 'article' ? (
           <BlogPanel
             active={active === 'article'}
             pageShowCount={pageShowCount}
@@ -101,12 +88,12 @@ export default function MainPage() {
           />
         ) : null}
 
-        {visited.has('user') ? (
-          <ProfilePanel active={active === 'user'} onMainTabNavigate={handleMainTabNavigate} />
+        {visited.has('user') || active === 'user' ? (
+          <ProfilePanel active={active === 'user'} />
         ) : null}
       </View>
 
-      <TabBar active={active} onNavigate={handleNavigate} />
+      <TabBar />
     </View>
   )
 }

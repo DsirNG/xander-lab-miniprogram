@@ -12,7 +12,7 @@ import type { AgentConversation } from '@/api/agent'
 import type { UserInfo } from '@/store/user'
 import { useCallback, useRef, useState } from 'react'
 import { useNavbarLayout } from '@/hooks/useNavbarLayout'
-import type { TabKey } from '@/utils/tabBarRoute'
+import { navigateToTab } from '@/store/tabBar'
 
 interface ChatDrawerProps {
   visible: boolean
@@ -22,7 +22,6 @@ interface ChatDrawerProps {
   activeId: number | null
   onSelect: (id: number) => void
   onNewChat: () => void
-  onNavigate: (tab: TabKey) => void
   user: UserInfo | null
 }
 
@@ -40,7 +39,6 @@ export function ChatDrawer({
   activeId,
   onSelect,
   onNewChat,
-  onNavigate,
   user,
 }: ChatDrawerProps) {
   const [keyword, setKeyword] = useState('')
@@ -143,7 +141,7 @@ export function ChatDrawer({
                 ariaRole="button"
                 ariaLabel={menu.name}
                 onClick={() => {
-                  onNavigate(menu.tab)
+                  navigateToTab(menu.tab)
                   onClose()
                 }}
               >
@@ -193,7 +191,7 @@ export function ChatDrawer({
             ariaRole="button"
             ariaLabel={PRODUCT_MENUS[2].name}
             onClick={() => {
-              onNavigate('user')
+              navigateToTab('user')
               onClose()
             }}
           >

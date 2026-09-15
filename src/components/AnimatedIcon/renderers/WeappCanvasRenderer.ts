@@ -11,6 +11,9 @@ type CanvasContextLike = {
   quadraticCurveTo: (x1: number, y1: number, x: number, y: number) => void
   arc: (x: number, y: number, radius: number, startAngle: number, endAngle: number) => void
   rect: (x: number, y: number, width: number, height: number) => void
+  save?: () => void
+  restore?: () => void
+  clip?: () => void
   stroke: () => void
   setTransform?: (a: number, b: number, c: number, d: number, e: number, f: number) => void
   setLineDash?: (segments: number[]) => void
@@ -33,22 +36,6 @@ type CanvasRuntime = {
   context: CanvasContextLike
   size: number
   ratio: number
-}
-
-function mixHexColors(from: string, to: string, progress: number) {
-  const fromMatch = /^#([\da-f]{6})$/i.exec(from)
-  const toMatch = /^#([\da-f]{6})$/i.exec(to)
-  if (!fromMatch || !toMatch) return progress >= 0.5 ? to : from
-
-  const fromValue = Number.parseInt(fromMatch[1], 16)
-  const toValue = Number.parseInt(toMatch[1], 16)
-  const channel = (shift: number) => {
-    const start = (fromValue >> shift) & 0xff
-    const end = (toValue >> shift) & 0xff
-    return Math.round(start + (end - start) * progress)
-  }
-
-  return `#${[16, 8, 0].map(shift => channel(shift).toString(16).padStart(2, '0')).join('')}`
 }
 
 function drawCommands(context: CanvasContextLike, commands: PathCommand[]) {
@@ -75,24 +62,199 @@ function drawCommands(context: CanvasContextLike, commands: PathCommand[]) {
   }
 }
 
-function strokeWithProgress(
-  context: CanvasContextLike,
-  progress: number,
-  length: number,
-  draw: () => void,
-) {
-  if (progress <= 0) return
+type Point = { x: number; y: number }
 
-  if (progress >= 1 || !context.setLineDash) {
-    draw()
-    return
+type Polyline = {
+  points: Point[]
+  length: number
+}
+
+const PATH_SAMPLES = 12
+
+function distance(from: Point, to: Point) {
+  return Math.hypot(to.x - from.x, to.y - from.y)
+}
+
+function pushPolyline(polylines: Polyline[], points: Point[]) {
+  if (points.length < 2) return
+
+  let length = 0
+  for (let index = 1; index < points.length; index += 1) {
+    length += distance(points[index - 1], points[index])
   }
 
-  context.setLineDash([length, length])
-  context.lineDashOffset = length * (1 - progress)
-  draw()
-  context.setLineDash([])
-  context.lineDashOffset = 0
+  if (length > 0) polylines.push({ points, length })
+}
+
+function getPathPolylines(commands: PathCommand[]): Polyline[] {
+  const polylines: Polyline[] = []
+  let current: Point = { x: 0, y: 0 }
+  let subpathStart: Point = current
+
+  for (const command of commands) {
+    switch (command.type) {
+      case 'M':
+        current = { x: command.x, y: command.y }
+        subpathStart = current
+        break
+      case 'L': {
+        const next = { x: command.x, y: command.y }
+        pushPolyline(polylines, [current, next])
+        current = next
+        break
+      }
+      case 'C': {
+        const points = [current]
+        for (let step = 1; step <= PATH_SAMPLES; step += 1) {
+          const t = step / PATH_SAMPLES
+          const inverse = 1 - t
+          points.push({
+            x:
+              inverse * inverse * inverse * current.x +
+              3 * inverse * inverse * t * command.x1 +
+              3 * inverse * t * t * command.x2 +
+              t * t * t * command.x,
+            y:
+              inverse * inverse * inverse * current.y +
+              3 * inverse * inverse * t * command.y1 +
+              3 * inverse * t * t * command.y2 +
+              t * t * t * command.y,
+          })
+        }
+        pushPolyline(polylines, points)
+        current = { x: command.x, y: command.y }
+        break
+      }
+      case 'Q': {
+        const points = [current]
+        for (let step = 1; step <= PATH_SAMPLES; step += 1) {
+          const t = step / PATH_SAMPLES
+          const inverse = 1 - t
+          points.push({
+            x: inverse * inverse * current.x + 2 * inverse * t * command.x1 + t * t * command.x,
+            y: inverse * inverse * current.y + 2 * inverse * t * command.y1 + t * t * command.y,
+          })
+        }
+        pushPolyline(polylines, points)
+        current = { x: command.x, y: command.y }
+        break
+      }
+      case 'Z':
+        pushPolyline(polylines, [current, subpathStart])
+        current = subpathStart
+        break
+    }
+  }
+
+  return polylines
+}
+
+function drawProgressivePolylines(
+  context: CanvasContextLike,
+  polylines: Polyline[],
+  progress: number,
+) {
+  const target = Math.max(0, Math.min(1, progress))
+  if (target <= 0 || polylines.length === 0) return
+
+  const totalLength = polylines.reduce((total, polyline) => total + polyline.length, 0)
+  let remaining = totalLength * target
+
+  context.beginPath()
+
+  for (const polyline of polylines) {
+    if (remaining <= 0) break
+
+    context.moveTo(polyline.points[0].x, polyline.points[0].y)
+    let consumed = 0
+
+    for (let index = 1; index < polyline.points.length; index += 1) {
+      const from = polyline.points[index - 1]
+      const to = polyline.points[index]
+      const segmentLength = distance(from, to)
+
+      if (consumed + segmentLength <= remaining) {
+        context.lineTo(to.x, to.y)
+        consumed += segmentLength
+        continue
+      }
+
+      const ratio = segmentLength === 0 ? 0 : (remaining - consumed) / segmentLength
+      context.lineTo(from.x + (to.x - from.x) * ratio, from.y + (to.y - from.y) * ratio)
+      remaining = 0
+      break
+    }
+
+    remaining -= Math.min(polyline.length, Math.max(0, consumed))
+  }
+
+  context.stroke()
+}
+
+function getRoundedRectPoints(
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  rx = 0,
+): Point[] {
+  const radius = Math.min(Math.max(0, rx), width / 2, height / 2)
+  return [
+    { x: x + radius, y },
+    { x: x + width - radius, y },
+    { x: x + width, y: y + radius },
+    { x: x + width, y: y + height - radius },
+    { x: x + width - radius, y: y + height },
+    { x: x + radius, y: y + height },
+    { x, y: y + height - radius },
+    { x, y: y + radius },
+    { x: x + radius, y },
+  ]
+}
+
+function getPolylineLength(points: Point[]) {
+  let length = 0
+  for (let index = 1; index < points.length; index += 1) {
+    length += distance(points[index - 1], points[index])
+  }
+  return length
+}
+
+function getNodeLength(node: IconNode) {
+  if (node.type === 'line') return distance({ x: node.x1, y: node.y1 }, { x: node.x2, y: node.y2 })
+  if (node.type === 'circle') return Math.PI * 2 * node.r
+  if (node.type === 'rect')
+    return getPolylineLength(getRoundedRectPoints(node.x, node.y, node.width, node.height, node.rx))
+  return getPathPolylines(node.commands).reduce((total, polyline) => total + polyline.length, 0)
+}
+
+function clampProgress(progress: number) {
+  return Math.max(0, Math.min(1, progress))
+}
+
+function clipDiagonalReveal(
+  context: CanvasContextLike,
+  width: number,
+  height: number,
+  progress: number,
+) {
+  const threshold = clampProgress(progress) * 2
+  context.beginPath()
+
+  if (threshold <= 1) {
+    context.moveTo(0, 0)
+    context.lineTo(width * threshold, 0)
+    context.lineTo(0, height * threshold)
+  } else {
+    context.moveTo(0, 0)
+    context.lineTo(width, 0)
+    context.lineTo(width, height * (threshold - 1))
+    context.lineTo(width * (threshold - 1), height)
+    context.lineTo(0, height)
+  }
+
+  context.closePath()
+  context.clip?.()
 }
 
 function drawNode(context: CanvasContextLike, node: IconNode, progress: number) {
@@ -118,40 +280,43 @@ function drawNode(context: CanvasContextLike, node: IconNode, progress: number) 
   }
 
   if (node.type === 'rect') {
-    const perimeter = (node.width + node.height) * 2
-    strokeWithProgress(context, node.role === 'draw' ? progress : 1, perimeter, () => {
+    const points = getRoundedRectPoints(node.x, node.y, node.width, node.height, node.rx)
+    if (node.role === 'draw') {
+      drawProgressivePolylines(
+        context,
+        [
+          {
+            points,
+            length: points.reduce((total, point, index) => {
+              if (index === 0) return total
+              return total + distance(points[index - 1], point)
+            }, 0),
+          },
+        ],
+        progress,
+      )
+    } else {
       context.beginPath()
-      if (node.rx && node.rx > 0) {
-        const radius = Math.min(node.rx, node.width / 2, node.height / 2)
-        context.moveTo(node.x + radius, node.y)
-        context.lineTo(node.x + node.width - radius, node.y)
-        context.lineTo(node.x + node.width, node.y + radius)
-        context.lineTo(node.x + node.width, node.y + node.height - radius)
-        context.lineTo(node.x + node.width - radius, node.y + node.height)
-        context.lineTo(node.x + radius, node.y + node.height)
-        context.lineTo(node.x, node.y + node.height - radius)
-        context.lineTo(node.x, node.y + radius)
-        context.closePath()
-      } else {
-        context.rect(node.x, node.y, node.width, node.height)
-      }
+      context.moveTo(points[0].x, points[0].y)
+      points.slice(1).forEach(point => context.lineTo(point.x, point.y))
       context.stroke()
-    })
+    }
     return
   }
 
-  const length = node.length ?? 100
-  strokeWithProgress(context, node.role === 'draw' ? progress : 1, length, () => {
-    drawCommands(context, node.commands)
-    context.stroke()
-  })
+  if (node.role === 'draw') {
+    drawProgressivePolylines(context, getPathPolylines(node.commands), progress)
+    return
+  }
+
+  drawCommands(context, node.commands)
+  context.stroke()
 }
 
 export function drawIcon(
   runtime: CanvasRuntime,
   definition: IconDefinition,
   progress: number,
-  inactiveColor: string,
   activeColor: string,
 ) {
   const { context, size, ratio } = runtime
@@ -160,18 +325,46 @@ export function drawIcon(
   context.setTransform?.(1, 0, 0, 1, 0, 0)
   context.clearRect(0, 0, runtime.canvas.width, runtime.canvas.height)
   context.setTransform?.(scale, 0, 0, scale, 0, 0)
-  context.strokeStyle = mixHexColors(inactiveColor, activeColor, progress)
+  const clampedProgress = clampProgress(progress)
   context.lineWidth = definition.strokeWidth ?? 2
   context.lineCap = definition.lineCap ?? 'round'
   context.lineJoin = definition.lineJoin ?? 'round'
 
-  context.globalAlpha = 0.68 + 0.32 * progress
-  definition.nodes.filter(node => node.role !== 'draw').forEach(node => drawNode(context, node, 1))
+  // Only the active stroke is painted on Canvas. The inactive SVG remains
+  // visible beneath it until this icon becomes selected.
+  context.strokeStyle = activeColor
+  context.globalAlpha = 1
+  if (clampedProgress <= 0) return
 
-  context.globalAlpha = progress
-  definition.nodes
-    .filter(node => node.role === 'draw')
-    .forEach(node => drawNode(context, node, progress))
+  // Reveal the active stroke diagonally from the top-left to the bottom-right
+  // over the full 0 -> 1 range.
+  context.strokeStyle = activeColor
+  context.globalAlpha = 1
+
+  // Treat the whole icon as one 0 → 1 drawing timeline. Each draw node gets
+  // only its portion of that timeline, so the stroke progresses in path order
+  // instead of every line starting at zero at the same time.
+  const drawNodes = definition.nodes.filter(node => node.role === 'draw')
+  if (context.save && context.restore && context.clip) {
+    context.save()
+    clipDiagonalReveal(context, definition.width, definition.height, clampedProgress)
+    drawNodes.forEach(node => drawNode(context, node, 1))
+    context.restore()
+    context.globalAlpha = 1
+    return
+  }
+  const totalLength = drawNodes.reduce((total, node) => total + getNodeLength(node), 0)
+  let offset = 0
+
+  drawNodes.forEach(node => {
+    const nodeLength = getNodeLength(node)
+    const start = totalLength > 0 ? offset / totalLength : 0
+    const end = totalLength > 0 ? (offset + nodeLength) / totalLength : 1
+    const nodeProgress =
+      end > start ? clampProgress((clampedProgress - start) / (end - start)) : clampedProgress
+    drawNode(context, node, nodeProgress)
+    offset += nodeLength
+  })
   context.globalAlpha = 1
 }
 
@@ -179,38 +372,56 @@ export async function getCanvasRuntime(
   canvasId: string,
   size: number,
 ): Promise<CanvasRuntime | null> {
-  if (Taro.getEnv() !== Taro.ENV_TYPE.WEAPP) return null
+  if (Taro.getEnv() !== Taro.ENV_TYPE.WEAPP) {
+    console.log('[AnimatedIcon] CANVAS_SKIP_ENV', { canvasId, env: Taro.getEnv() })
+    return null
+  }
 
   return new Promise(resolve => {
-    Taro.nextTick(() => {
-      try {
-        Taro.createSelectorQuery()
-          .select(`#${canvasId}`)
-          .fields({ node: true, size: true })
-          .exec((result: Array<{ node?: CanvasNodeLike; width?: number; height?: number }>) => {
-            try {
-              const entry = result?.[0]
-              if (!entry?.node) {
+    let attempt = 0
+
+    const queryCanvas = () => {
+      Taro.nextTick(() => {
+        try {
+          Taro.createSelectorQuery()
+            .select(`#${canvasId}`)
+            .fields({ node: true, size: true })
+            .exec((result: Array<{ node?: CanvasNodeLike; width?: number; height?: number }>) => {
+              try {
+                const entry = result?.[0]
+                if (!entry?.node) {
+                  if (attempt < 3) {
+                    attempt += 1
+                    setTimeout(queryCanvas, 40)
+                    return
+                  }
+
+                  console.warn('[AnimatedIcon] CANVAS_NODE_MISSING', { canvasId, result })
+                  resolve(null)
+                  return
+                }
+
+                const canvas = entry.node
+                const context = canvas.getContext('2d')
+                const ratio = Taro.getWindowInfo().pixelRatio || 1
+                const measuredSize = entry.width || size
+
+                canvas.width = measuredSize * ratio
+                canvas.height = measuredSize * ratio
+
+                resolve({ canvas, context, size: measuredSize, ratio })
+              } catch {
+                console.warn('[AnimatedIcon] CANVAS_QUERY_FAILED', { canvasId })
                 resolve(null)
-                return
               }
+            })
+        } catch {
+          console.warn('[AnimatedIcon] CANVAS_QUERY_THROWN', { canvasId })
+          resolve(null)
+        }
+      })
+    }
 
-              const canvas = entry.node
-              const context = canvas.getContext('2d')
-              const ratio = Taro.getWindowInfo().pixelRatio || 1
-              const measuredSize = entry.width || size
-
-              canvas.width = measuredSize * ratio
-              canvas.height = measuredSize * ratio
-
-              resolve({ canvas, context, size: measuredSize, ratio })
-            } catch {
-              resolve(null)
-            }
-          })
-      } catch {
-        resolve(null)
-      }
-    })
+    queryCanvas()
   })
 }

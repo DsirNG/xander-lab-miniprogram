@@ -35,6 +35,7 @@ const chat: IconDefinition = {
         { type: 'C', x1: 3.6, y1: 14.8, x2: 3, y2: 13.5, x: 3, y: 12 },
         { type: 'C', x1: 3, y1: 7, x2: 7, y2: 3, x: 12, y: 3 },
         { type: 'C', x1: 17, y1: 3, x2: 21, y2: 7, x: 21, y: 12 },
+        { type: 'Z' },
       ],
     },
   ],
