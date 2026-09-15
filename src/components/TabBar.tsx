@@ -29,6 +29,7 @@ function TabBarBase() {
   const boundsRef = useRef<TabBarBounds | null>(null)
   const pressRef = useRef<PressState | null>(null)
   const suppressClickRef = useRef(false)
+  const [isPressed, setIsPressed] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
   const [dragOffset, setDragOffset] = useState<number | null>(null)
   renderCountRef.current += 1
@@ -111,7 +112,8 @@ function TabBarBase() {
         startY: touch.clientY,
         didMove: false,
       }
-      // A tap keeps the capsule still. Expand it only after a drag is proven.
+      // A press expands the capsule in place; movement upgrades it to drag.
+      setIsPressed(true)
       setIsDragging(false)
       setDragOffset(null)
     }
@@ -135,6 +137,7 @@ function TabBarBase() {
     pressRef.current = null
     if (!press) return
 
+    setIsPressed(false)
     setIsDragging(false)
     setDragOffset(null)
 
@@ -156,6 +159,7 @@ function TabBarBase() {
   const handleTouchCancel: CommonEventFunction = event => {
     const didMove = pressRef.current?.didMove ?? false
     pressRef.current = null
+    setIsPressed(false)
     setIsDragging(false)
     setDragOffset(null)
     if (didMove) {
@@ -211,8 +215,8 @@ function TabBarBase() {
       <View id="tab-list" className="tab-list">
         <View
           className={`active-pill active-pill--${safeActiveIndex} ${
-            isDragging ? 'active-pill--dragging' : ''
-          }`}
+            isPressed || isDragging ? 'active-pill--expanded' : ''
+          } ${isDragging ? 'active-pill--dragging' : ''}`}
           style={
             dragOffset === null
               ? undefined

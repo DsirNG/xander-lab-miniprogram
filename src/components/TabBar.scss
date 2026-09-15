@@ -87,7 +87,7 @@
   --pill-shift: 300%;
 }
 
-.active-pill--dragging {
+.active-pill--expanded {
   top: calc(0px - var(--pill-drag-inset));
   bottom: auto;
   left: calc(0px - var(--pill-drag-inset));
@@ -99,20 +99,32 @@
   box-shadow: none;
   transform: none;
   transform-origin: center;
-  transition: none;
+  transition:
+    top 140ms ease,
+    left 140ms ease,
+    width 140ms ease,
+    height 140ms ease,
+    border-color 140ms ease,
+    background-color 140ms ease;
 }
 
-.active-pill--0.active-pill--dragging {
+.active-pill--0.active-pill--expanded {
   left: calc(0px - var(--pill-drag-inset));
 }
-.active-pill--1.active-pill--dragging {
+.active-pill--1.active-pill--expanded {
   left: calc(25% - var(--pill-drag-inset));
 }
-.active-pill--2.active-pill--dragging {
+.active-pill--2.active-pill--expanded {
   left: calc(50% - var(--pill-drag-inset));
 }
-.active-pill--3.active-pill--dragging {
+.active-pill--3.active-pill--expanded {
   left: calc(75% - var(--pill-drag-inset));
+}
+
+/* Pointer movement should never lag behind the finger while the expanded
+ * capsule is being repositioned. */
+.active-pill--dragging {
+  transition: none;
 }
 
 .tab-item {
