@@ -1,6 +1,6 @@
 import { Canvas, Image, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
-import { useEffect, useRef, useState } from 'react'
+import { memo, useEffect, useRef, useState } from 'react'
 import { iconRegistry } from './registry'
 import { drawIcon, getCanvasRuntime } from './renderers/WeappCanvasRenderer'
 import type { AnimatedIconName } from './types'
@@ -23,7 +23,7 @@ type AnimatedIconProps = {
   activeColor?: string
 }
 
-export function AnimatedIcon({
+function AnimatedIconBase({
   name,
   active,
   className = '',
@@ -121,7 +121,9 @@ export function AnimatedIcon({
       if (timerRef.current) clearInterval(timerRef.current)
       timerRef.current = null
     }
-  }, [active, activeColor, definition])
+    // Canvas initialization is asynchronous in WeChat. Include its ready
+    // state so a newly selected icon draws even if its canvas resolves later.
+  }, [active, activeColor, canvasReady, definition])
 
   return (
     <View
@@ -143,3 +145,8 @@ export function AnimatedIcon({
     </View>
   )
 }
+
+// Same-tab refreshes update panel data but keep every icon's props unchanged.
+// Memoizing the leaf prevents those parent renders from restarting or
+// re-creating the icon subtree; changing active still runs the draw effect.
+export const AnimatedIcon = memo(AnimatedIconBase)

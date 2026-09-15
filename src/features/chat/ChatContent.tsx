@@ -132,9 +132,10 @@ function showToast(title: string) {
 
 type ChatContentProps = {
   panelActive: boolean
+  refreshVersion?: number
 }
 
-export function ChatContent({ panelActive }: ChatContentProps) {
+export function ChatContent({ panelActive, refreshVersion = 0 }: ChatContentProps) {
   const user = useUserStore(state => state.user)
   const refreshUser = useUserStore(state => state.refresh)
 
@@ -224,6 +225,7 @@ export function ChatContent({ panelActive }: ChatContentProps) {
   const [streamThought, setStreamThought] = useState('')
   const [streamTool, setStreamTool] = useState<StreamToolState | null>(null)
   const [streamImageResult, setStreamImageResult] = useState<GeneratedImageResult | null>(null)
+  const handledRefreshVersionRef = useRef(refreshVersion)
 
   // 流式增量的合并缓冲：上游一个 token 一个事件，若每个事件都 setState，
   // 一次回答会触发上百次全量重渲染（历史消息 + Markdown 重解析 + 滚动）。
@@ -373,10 +375,10 @@ export function ChatContent({ panelActive }: ChatContentProps) {
    */
   const resumeActive = useCallback(() => {
     const savedId = activeIdRef.current ?? Taro.getStorageSync<number>(ACTIVE_KEY)
-    if (!savedId) return
+    if (!savedId) return Promise.resolve()
     const requestId = ++resumeRequestRef.current
     console.log('[ChatContent] RESUME_START', { requestId, savedId })
-    agentApi
+    return agentApi
       .getConversation(savedId)
       .then(snapshot => {
         if (requestId !== resumeRequestRef.current) {
@@ -442,6 +444,18 @@ export function ChatContent({ panelActive }: ChatContentProps) {
       clearStreamState()
     },
   })
+
+  useEffect(() => {
+    if (refreshVersion === handledRefreshVersionRef.current) return
+    if (!panelActive) return
+
+    handledRefreshVersionRef.current = refreshVersion
+
+    const refreshTasks: Promise<unknown>[] = [resumeActive()]
+    if (tokenStorage.getAccessToken()) refreshTasks.push(loadConversations())
+
+    void Promise.allSettled(refreshTasks)
+  }, [loadConversations, panelActive, refreshVersion, resumeActive])
 
   useEffect(() => {
     if (!active) return

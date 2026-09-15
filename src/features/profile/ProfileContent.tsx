@@ -1,6 +1,6 @@
 import { Image, Text, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { authApi } from '@/api/auth'
 import { formatPoints } from '@/api/points'
 import { profileApi } from '@/api/profile'
@@ -43,14 +43,16 @@ function ProfileMenuRow({
 export type ProfileContentProps = {
   /** True while the Profile panel is the visible MainShell panel. */
   active: boolean
+  refreshVersion?: number
 }
 
-export function ProfileContent({ active }: ProfileContentProps) {
+export function ProfileContent({ active, refreshVersion = 0 }: ProfileContentProps) {
   const user = useUserStore(state => state.user)
   const setUser = useUserStore(state => state.setUser)
   const [balance, setBalance] = useState<number | null>(null)
   const [blogCount, setBlogCount] = useState<number | null>(null)
   const [loading, setLoading] = useState(false)
+  const handledRefreshVersionRef = useRef(refreshVersion)
 
   const clearOverview = useCallback(() => {
     setUser(null)
@@ -77,6 +79,14 @@ export function ProfileContent({ active }: ProfileContentProps) {
   }, [clearOverview, setUser])
 
   usePanelActive(active, { onShow: refreshOverview })
+
+  useEffect(() => {
+    if (refreshVersion === handledRefreshVersionRef.current) return
+    if (!active) return
+
+    handledRefreshVersionRef.current = refreshVersion
+    void refreshOverview()
+  }, [active, refreshOverview, refreshVersion])
 
   const navigateMainTab = useCallback((tab: TabKey) => navigateToTab(tab), [])
 

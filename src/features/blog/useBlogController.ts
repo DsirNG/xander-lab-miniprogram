@@ -4,7 +4,7 @@ import { blogApi, type Article, type Category, type Tag } from '@/api/blog'
 import { usePanelActive } from '@/hooks/usePanelActive'
 
 const PAGE_SIZE = 10
-type RefreshSource = 'panel-active' | 'page-show'
+type RefreshSource = 'panel-active' | 'page-show' | 'tab-refresh'
 type ArticleFilters = { search: string; category: string; tag: string }
 
 function showToast(title: string) {
@@ -20,7 +20,12 @@ function decodeInitialTag(value?: string) {
   }
 }
 
-export function useBlogController(active: boolean, initialTag = '', pageShowCount = 0) {
+export function useBlogController(
+  active: boolean,
+  initialTag = '',
+  pageShowCount = 0,
+  refreshVersion = 0,
+) {
   const [articles, setArticles] = useState<Article[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [popularTags, setPopularTags] = useState<Tag[]>([])
@@ -34,6 +39,7 @@ export function useBlogController(active: boolean, initialTag = '', pageShowCoun
   const [loadedOnce, setLoadedOnce] = useState(false)
   const requestSequence = useRef(0)
   const handledPageShowRef = useRef(pageShowCount)
+  const handledRefreshVersionRef = useRef(refreshVersion)
 
   const currentFilters = useCallback(
     (): ArticleFilters => ({ search, category, tag }),
@@ -153,6 +159,14 @@ export function useBlogController(active: boolean, initialTag = '', pageShowCoun
   }, [])
 
   usePanelActive(active, { onShow: refresh })
+
+  useEffect(() => {
+    if (refreshVersion === handledRefreshVersionRef.current) return
+    if (!active) return
+
+    handledRefreshVersionRef.current = refreshVersion
+    void refresh('tab-refresh')
+  }, [active, refresh, refreshVersion])
 
   useEffect(() => {
     if (pageShowCount === 0 || pageShowCount === handledPageShowRef.current) return

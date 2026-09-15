@@ -17,6 +17,7 @@ function isTabKey(value?: string): value is TabKey {
 export default function MainPage() {
   const active = useTabBarStore(state => state.active)
   const setActive = useTabBarStore(state => state.setActive)
+  const refreshVersions = useTabBarStore(state => state.refreshVersions)
   const [visited, setVisited] = useState<Set<TabKey>>(() => new Set(['chat']))
   const [initialBlogTag, setInitialBlogTag] = useState('')
   const [pageShowCount, setPageShowCount] = useState(0)
@@ -74,10 +75,14 @@ export default function MainPage() {
   return (
     <View className="main-shell">
       <View className="main-shell__content">
-        <ChatPanel active={active === 'chat'} />
+        <ChatPanel active={active === 'chat'} refreshVersion={refreshVersions.chat} />
 
         {visited.has('calendar') || active === 'calendar' ? (
-          <PlansPanel active={active === 'calendar'} pageShowCount={pageShowCount} />
+          <PlansPanel
+            active={active === 'calendar'}
+            pageShowCount={pageShowCount}
+            refreshVersion={refreshVersions.calendar}
+          />
         ) : null}
 
         {visited.has('article') || active === 'article' ? (
@@ -85,11 +90,12 @@ export default function MainPage() {
             active={active === 'article'}
             pageShowCount={pageShowCount}
             initialTag={initialBlogTag}
+            refreshVersion={refreshVersions.article}
           />
         ) : null}
 
         {visited.has('user') || active === 'user' ? (
-          <ProfilePanel active={active === 'user'} />
+          <ProfilePanel active={active === 'user'} refreshVersion={refreshVersions.user} />
         ) : null}
       </View>
 

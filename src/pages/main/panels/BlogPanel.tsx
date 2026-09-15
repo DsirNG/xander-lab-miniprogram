@@ -9,11 +9,17 @@ type BlogPanelProps = {
   active: boolean
   pageShowCount: number
   initialTag?: string
+  refreshVersion?: number
 }
 
 /** Blog business content hosted inside the persistent MainShell. */
-export function BlogPanel({ active, pageShowCount, initialTag = '' }: BlogPanelProps) {
-  const controller = useBlogController(active, initialTag, pageShowCount)
+export function BlogPanel({
+  active,
+  pageShowCount,
+  initialTag = '',
+  refreshVersion = 0,
+}: BlogPanelProps) {
+  const controller = useBlogController(active, initialTag, pageShowCount, refreshVersion)
   const { selectTag } = controller
   const pendingBlogTag = useTabBarStore(state => state.pendingBlogTag)
   const clearPendingBlogTag = useTabBarStore(state => state.setPendingBlogTag)

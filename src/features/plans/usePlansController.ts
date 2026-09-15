@@ -6,13 +6,13 @@ import { useUserStore } from '@/store/user'
 import type { PlanActionKey } from '@/components/PlanCard'
 
 const PAGE_SIZE = 10
-type RefreshSource = 'panel-active' | 'page-show'
+type RefreshSource = 'panel-active' | 'page-show' | 'tab-refresh'
 
 function showToast(title: string) {
   Taro.showToast({ title, icon: 'none' })
 }
 
-export function usePlansController(active: boolean, pageShowCount = 0) {
+export function usePlansController(active: boolean, pageShowCount = 0, refreshVersion = 0) {
   const user = useUserStore(state => state.user)
   const userLoaded = useUserStore(state => state.loaded)
   const refreshUser = useUserStore(state => state.refresh)
@@ -25,6 +25,7 @@ export function usePlansController(active: boolean, pageShowCount = 0) {
   const [busyId, setBusyId] = useState<number | null>(null)
   const requestSequence = useRef(0)
   const handledPageShowRef = useRef(pageShowCount)
+  const handledRefreshVersionRef = useRef(refreshVersion)
 
   const load = useCallback(async (targetPage: number, append: boolean) => {
     if (!useUserStore.getState().user) {
@@ -128,6 +129,14 @@ export function usePlansController(active: boolean, pageShowCount = 0) {
   )
 
   usePanelActive(active, { onShow: refresh })
+
+  useEffect(() => {
+    if (refreshVersion === handledRefreshVersionRef.current) return
+    if (!active) return
+
+    handledRefreshVersionRef.current = refreshVersion
+    void refresh('tab-refresh')
+  }, [active, refresh, refreshVersion])
 
   useEffect(() => {
     if (pageShowCount === 0 || pageShowCount === handledPageShowRef.current) return

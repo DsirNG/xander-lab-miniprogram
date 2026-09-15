@@ -7,11 +7,12 @@ import '@/features/plans/PlansContent.scss'
 type PlansPanelProps = {
   active: boolean
   pageShowCount: number
+  refreshVersion?: number
 }
 
 /** Plans business content hosted inside the persistent MainShell. */
-export function PlansPanel({ active, pageShowCount }: PlansPanelProps) {
-  const controller = usePlansController(active, pageShowCount)
+export function PlansPanel({ active, pageShowCount, refreshVersion = 0 }: PlansPanelProps) {
+  const controller = usePlansController(active, pageShowCount, refreshVersion)
   const renderCountRef = useRef(0)
   renderCountRef.current += 1
 

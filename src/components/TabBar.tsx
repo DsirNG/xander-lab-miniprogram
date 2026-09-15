@@ -1,6 +1,6 @@
 import { Text, View, type CommonEventFunction, type ITouchEvent } from '@tarojs/components'
 import Taro from '@tarojs/taro'
-import { useEffect, useRef, useState } from 'react'
+import { memo, useEffect, useRef, useState } from 'react'
 import { navigateToTab, useTabBarStore } from '@/store/tabBar'
 import { TAB_ITEMS } from '@/utils/tabBarRoute'
 import { AnimatedIcon } from './AnimatedIcon'
@@ -13,20 +13,22 @@ type TabBarBounds = {
 
 type PressState = {
   index: number
+  activeIndex: number
   startX: number
   startY: number
   didMove: boolean
 }
 
-const MOVE_CANCEL_DISTANCE = 8
+const MOVE_CANCEL_DISTANCE = 4
+const TAB_BAR_SIDE_INSET = 20
+const TAB_BAR_PADDING = 6
 
-export function TabBar() {
+function TabBarBase() {
   const active = useTabBarStore(state => state.active)
   const renderCountRef = useRef(0)
   const boundsRef = useRef<TabBarBounds | null>(null)
   const pressRef = useRef<PressState | null>(null)
   const suppressClickRef = useRef(false)
-  const [isPressed, setIsPressed] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
   const [dragOffset, setDragOffset] = useState<number | null>(null)
   renderCountRef.current += 1
@@ -46,7 +48,7 @@ export function TabBar() {
           }
         })
     } catch {
-      // Fall through to the window-based estimate below.
+      // Use the window estimate below when the selector query is unavailable.
     }
 
     if (boundsRef.current) return
@@ -54,11 +56,14 @@ export function TabBar() {
       const info = Taro.getWindowInfo()
       const windowWidth = info.windowWidth || 375
       boundsRef.current = {
-        left: 22,
-        width: Math.max(0, windowWidth - 44),
+        left: TAB_BAR_SIDE_INSET + TAB_BAR_PADDING,
+        width: Math.max(0, windowWidth - TAB_BAR_SIDE_INSET * 2 - TAB_BAR_PADDING * 2),
       }
     } catch {
-      boundsRef.current = { left: 22, width: 331 }
+      boundsRef.current = {
+        left: TAB_BAR_SIDE_INSET + TAB_BAR_PADDING,
+        width: 375 - TAB_BAR_SIDE_INSET * 2 - TAB_BAR_PADDING * 2,
+      }
     }
   }
 
@@ -76,6 +81,20 @@ export function TabBar() {
     return Math.max(0, Math.min(TAB_ITEMS.length - 1, Math.floor((offset + 50) / 100)))
   }
 
+  const getDragDeltaFromX = (clientX: number, press: PressState) => {
+    if (!boundsRef.current) measureBounds()
+    const bounds = boundsRef.current
+    if (!bounds?.width) return 0
+
+    const cellWidth = bounds.width / TAB_ITEMS.length
+    const minCenter = cellWidth / 2
+    const maxCenter = bounds.width - cellWidth / 2
+    const center = Math.max(minCenter, Math.min(maxCenter, clientX - bounds.left))
+    const targetOffset = center - cellWidth / 2
+    const originOffset = press.activeIndex * cellWidth
+    return targetOffset - originOffset
+  }
+
   const getTouch = (event: ITouchEvent) => event.touches?.[0] ?? event.changedTouches?.[0]
 
   const handleTouchStart =
@@ -87,14 +106,13 @@ export function TabBar() {
       measureBounds()
       pressRef.current = {
         index,
+        activeIndex: safeActiveIndex,
         startX: touch.clientX,
         startY: touch.clientY,
         didMove: false,
       }
-      setIsPressed(true)
+      // A tap keeps the capsule still. Expand it only after a drag is proven.
       setIsDragging(false)
-      // 普通点击只触发按压放大；未确认拖动前不要预先移动胶囊。
-      // 这样松手后的 click 才能保留完整的旧位置 → 新位置过渡。
       setDragOffset(null)
     }
 
@@ -108,7 +126,8 @@ export function TabBar() {
       press.didMove = true
       setIsDragging(true)
     }
-    setDragOffset(getOffsetFromX(touch.clientX))
+
+    if (press.didMove) setDragOffset(getDragDeltaFromX(touch.clientX, press))
   }
 
   const finishTouch = (event: ITouchEvent) => {
@@ -116,20 +135,18 @@ export function TabBar() {
     pressRef.current = null
     if (!press) return
 
-    setIsPressed(false)
     setIsDragging(false)
     setDragOffset(null)
 
-    if (press.didMove) {
-      const touch = event.changedTouches?.[0] ?? event.touches?.[0]
-      const index = touch ? getIndexFromX(touch.clientX) : press.index
-      suppressClickRef.current = true
-      setTimeout(() => {
-        suppressClickRef.current = false
-      }, 120)
-      navigateToTab(TAB_ITEMS[index].key, 'medium')
-      return
-    }
+    if (!press.didMove) return
+
+    const touch = event.changedTouches?.[0] ?? event.touches?.[0]
+    const index = touch ? getIndexFromX(touch.clientX) : press.index
+    suppressClickRef.current = true
+    setTimeout(() => {
+      suppressClickRef.current = false
+    }, 120)
+    navigateToTab(TAB_ITEMS[index].key, 'medium')
   }
 
   const handleTouchEnd: CommonEventFunction = event => {
@@ -139,9 +156,8 @@ export function TabBar() {
   const handleTouchCancel: CommonEventFunction = event => {
     const didMove = pressRef.current?.didMove ?? false
     pressRef.current = null
-    setDragOffset(null)
-    setIsPressed(false)
     setIsDragging(false)
+    setDragOffset(null)
     if (didMove) {
       suppressClickRef.current = true
       setTimeout(() => {
@@ -186,21 +202,22 @@ export function TabBar() {
 
   return (
     <View
-      className={`tab-bar ${isPressed ? 'tab-bar--pressed' : ''} ${
-        isDragging ? 'tab-bar--dragging' : ''
-      }`}
+      className={`tab-bar ${isDragging ? 'tab-bar--dragging' : ''}`}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      onTouchCancel={handleTouchCancel}
     >
       <View className="tab-bar__glass" />
       <View id="tab-list" className="tab-list">
         <View
           className={`active-pill active-pill--${safeActiveIndex} ${
-            isPressed ? 'active-pill--dragging' : ''
+            isDragging ? 'active-pill--dragging' : ''
           }`}
           style={
             dragOffset === null
               ? undefined
               : {
-                  transform: `translate3d(${dragOffset}%, 0, 0) scale(1.28)`,
+                  transform: `translate3d(${dragOffset}px, 0, 0)`,
                 }
           }
         />
@@ -208,14 +225,15 @@ export function TabBar() {
           <View
             className={`tab-item ${active === item.key ? 'active' : ''}`}
             key={item.key}
-            hoverClass="tab-item--pressed"
             onTouchStart={handleTouchStart(index)}
-            onTouchMove={handleTouchMove}
-            onTouchEnd={handleTouchEnd}
-            onTouchCancel={handleTouchCancel}
             onClick={() => handleClick(index)}
           >
-            <AnimatedIcon name={item.icon} active={active === item.key} className="tab-icon" />
+            <AnimatedIcon
+              key={item.key}
+              name={item.icon}
+              active={active === item.key}
+              className="tab-icon"
+            />
             <Text>{item.label}</Text>
           </View>
         ))}
@@ -223,3 +241,8 @@ export function TabBar() {
     </View>
   )
 }
+
+// The MainShell also re-renders when a same-tab refresh increments its data
+// version. TabBar has no props, so skip that parent render entirely; its own
+// Zustand subscription still re-renders it when the selected tab changes.
+export const TabBar = memo(TabBarBase)

@@ -36,7 +36,9 @@ const article: IconDefinition = {
     { type: 'line', x1: 16, y1: 17, x2: 8, y2: 17, role: 'base' },
     {
       type: 'path',
-      role: 'base',
+      // This small top line is part of the article icon. Mark it as a draw
+      // path as well because the active Canvas renderer only paints draw nodes.
+      role: 'draw',
       commands: [
         { type: 'M', x: 10, y: 9 },
         { type: 'L', x: 9, y: 9 },

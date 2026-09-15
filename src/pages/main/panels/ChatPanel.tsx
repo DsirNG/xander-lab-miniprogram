@@ -4,10 +4,11 @@ import { ChatContent } from '@/features/chat/ChatContent'
 
 type ChatPanelProps = {
   active: boolean
+  refreshVersion?: number
 }
 
 /** Chat business content hosted inside the persistent MainShell. */
-export function ChatPanel({ active }: ChatPanelProps) {
+export function ChatPanel({ active, refreshVersion = 0 }: ChatPanelProps) {
   const renderCountRef = useRef(0)
   renderCountRef.current += 1
 
@@ -30,7 +31,7 @@ export function ChatPanel({ active }: ChatPanelProps) {
 
   return (
     <View className={`main-panel main-panel--chat ${active ? 'is-active' : ''}`} hidden={!active}>
-      <ChatContent panelActive={active} />
+      <ChatContent panelActive={active} refreshVersion={refreshVersion} />
     </View>
   )
 }

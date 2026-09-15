@@ -1,7 +1,9 @@
 .main-shell {
   position: relative;
   height: 100vh;
-  overflow: hidden;
+  /* The content layer owns clipping; the shell must let the iOS-style
+   * capsule extend beyond the TabBar on all four sides. */
+  overflow: visible;
   background: var(--color-canvas);
 }
 
