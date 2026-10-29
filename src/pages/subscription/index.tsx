@@ -1,11 +1,11 @@
 import { Text, View } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { virtualPayApi, type VirtualPayData, type VirtualPayProduct } from '@/api/virtualPay'
 import { NavBar } from '@/components/NavBar'
 import { Button } from '@/components/ui/Button'
-import { t } from '@/i18n'
-import { useUserStore } from '@/store/user'
+import { t, useLocale } from '@/i18n'
+import { ensureLogin, useUserStore } from '@/store/user'
 import './index.scss'
 
 type VirtualPaymentRuntime = {
@@ -43,19 +43,20 @@ function wait(milliseconds: number) {
 }
 
 export default function SubscriptionPage() {
+  useLocale()
   const user = useUserStore(state => state.user)
   const [products, setProducts] = useState<VirtualPayProduct[]>([])
   const [enabled, setEnabled] = useState(false)
   const [loading, setLoading] = useState(true)
   const [buying, setBuying] = useState('')
+  const loadingRef = useRef(false)
 
   useDidShow(() => {
+    if (!ensureLogin() || loadingRef.current) return
+    loadingRef.current = true
+    // 用户套餐资料在后台更新，不阻塞商品目录。
+    void useUserStore.getState().refresh()
     const load = async () => {
-      await useUserStore.getState().refresh()
-      if (!useUserStore.getState().user) {
-        Taro.redirectTo({ url: '/pages/login/index' })
-        return
-      }
       try {
         const catalog = await virtualPayApi.catalog()
         setEnabled(catalog.enabled)
@@ -66,6 +67,7 @@ export default function SubscriptionPage() {
           icon: 'none',
         })
       } finally {
+        loadingRef.current = false
         setLoading(false)
       }
     }

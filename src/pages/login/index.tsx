@@ -3,7 +3,7 @@ import Taro, { useDidShow, useLoad } from '@tarojs/taro'
 import { useEffect, useRef, useState } from 'react'
 import { authApi, type UserInfo } from '@/api/auth'
 import { NavBar } from '@/components/NavBar'
-import { t } from '@/i18n'
+import { t, useLocale } from '@/i18n'
 import { useUserStore } from '@/store/user'
 import './index.scss'
 
@@ -21,6 +21,7 @@ function isInvalidEmail(value: string): boolean {
 }
 
 export default function Login() {
+  useLocale()
   const supportsWechatLogin = Taro.getEnv() === Taro.ENV_TYPE.WEAPP
   const setUser = useUserStore(state => state.setUser)
   const [mode, setMode] = useState<Mode>(supportsWechatLogin ? 'wechat' : 'password')

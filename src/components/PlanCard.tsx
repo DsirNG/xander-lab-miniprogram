@@ -1,3 +1,4 @@
+import { t, useLocale } from '@/i18n'
 import { Text, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import type { Plan } from '@/api/plans'
@@ -14,17 +15,39 @@ const ACTION_DEFS: Array<{
 }> = [
   {
     key: 'trigger',
-    title: '立即执行',
+    get title() {
+      return t('ui.runNow')
+    },
     show: plan => !plan.runOnce && (plan.status === 'ACTIVE' || plan.status === 'PAUSED'),
   },
-  { key: 'pause', title: '暂停', show: plan => plan.status === 'ACTIVE' },
-  { key: 'resume', title: '恢复', show: plan => plan.status === 'PAUSED' },
+  {
+    key: 'pause',
+    get title() {
+      return t('ui.pause')
+    },
+    show: plan => plan.status === 'ACTIVE',
+  },
+  {
+    key: 'resume',
+    get title() {
+      return t('ui.resume')
+    },
+    show: plan => plan.status === 'PAUSED',
+  },
   {
     key: 'cancel',
-    title: '取消',
+    get title() {
+      return t('ui.cancel')
+    },
     show: plan => plan.status === 'ACTIVE' || plan.status === 'PAUSED',
   },
-  { key: 'delete', title: '删除', show: plan => plan.status !== 'RUNNING' },
+  {
+    key: 'delete',
+    get title() {
+      return t('ui.delete')
+    },
+    show: plan => plan.status !== 'RUNNING',
+  },
 ]
 
 export function PlanCard({
@@ -34,6 +57,7 @@ export function PlanCard({
   plan: Plan
   onAction: (action: PlanActionKey) => void
 }) {
+  useLocale()
   const visibleActions = ACTION_DEFS.filter(def => def.show(plan))
 
   const showActions = async (event: { stopPropagation: () => void }) => {
@@ -57,15 +81,18 @@ export function PlanCard({
       <View className="plan-card-head">
         <View className="plan-card-title-wrap">
           <Text className="plan-card-title">{plan.topic}</Text>
-          {plan.runOnce ? <Text className="badge badge-purple">一次性</Text> : null}
+          {plan.runOnce ? <Text className="badge badge-purple">{t('ui.oneTime')}</Text> : null}
           {plan.topics?.length > 0 && !plan.runOnce ? (
-            <Text className="plan-queue">队列 {plan.topics.length}</Text>
+            <Text className="plan-queue">
+              {t('ui.queue')}
+              {plan.topics.length}
+            </Text>
           ) : null}
         </View>
         <View className="plan-card-status">
           <PlanStatusBadge status={plan.status} />
           {visibleActions.length > 0 ? (
-            <View className="plan-more" aria-label="计划操作" onClick={showActions}>
+            <View className="plan-more" aria-label={t('ui.planActions')} onClick={showActions}>
               <Icon name="more" />
             </View>
           ) : null}
@@ -73,14 +100,16 @@ export function PlanCard({
       </View>
       <View className="plan-card-meta">
         <Text className="plan-meta-item">
-          触发 {(plan.triggerTimes?.length ? plan.triggerTimes : [plan.triggerTime]).join(' / ')}
+          {t('ui.trigger')}
+          {(plan.triggerTimes?.length ? plan.triggerTimes : [plan.triggerTime]).join(' / ')}
         </Text>
         <Text className="plan-meta-item">
-          下次运行 {formatInstant(plan.nextRunAt)}（{plan.timezone}）
+          {t('ui.nextRun')}
+          {formatInstant(plan.nextRunAt)}（{plan.timezone}）
         </Text>
         <View className="plan-syncs">
           {plan.syncCsdn ? <Text className="badge badge-blue">CSDN</Text> : null}
-          {plan.syncJuejin ? <Text className="badge badge-blue">掘金</Text> : null}
+          {plan.syncJuejin ? <Text className="badge badge-blue">{t('ui.juejin')}</Text> : null}
         </View>
       </View>
       {plan.errorMessage ? <Text className="plan-error">{plan.errorMessage}</Text> : null}

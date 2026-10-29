@@ -4,11 +4,12 @@ import { useState } from 'react'
 import { authApi } from '@/api/auth'
 import { NavBar } from '@/components/NavBar'
 import { Button } from '@/components/ui/Button'
-import { t } from '@/i18n'
+import { t, useLocale } from '@/i18n'
 import { useUserStore } from '@/store/user'
 import './index.scss'
 
 export default function AccountProfilePage() {
+  useLocale()
   const setStoredUser = useUserStore(state => state.setUser)
   const [username, setUsername] = useState('')
   const [nickname, setNickname] = useState('')

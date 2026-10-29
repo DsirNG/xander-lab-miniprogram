@@ -1,3 +1,4 @@
+import { t, useLocale } from '@/i18n'
 import { Button, Text, View } from '@tarojs/components'
 import Taro, { useRouter, useShareAppMessage } from '@tarojs/taro'
 import { useEffect, useState } from 'react'
@@ -9,6 +10,7 @@ import { useTabBarStore } from '@/store/tabBar'
 import './index.scss'
 
 export default function BlogDetail() {
+  useLocale()
   const { params } = useRouter()
   const [article, setArticle] = useState<Article | null>(null)
   const [loading, setLoading] = useState(true)
@@ -33,7 +35,7 @@ export default function BlogDetail() {
 
   useEffect(() => {
     if (!id) {
-      setError('缺少文章 ID')
+      setError(t('ui.missingArticleId'))
       setLoading(false)
       return
     }
@@ -45,7 +47,7 @@ export default function BlogDetail() {
         blogApi.recordView(id).catch(() => undefined)
       })
       .catch(reason => {
-        if (active) setError(reason instanceof Error ? reason.message : '文章加载失败')
+        if (active) setError(reason instanceof Error ? reason.message : t('ui.unableToLoadArticle'))
       })
       .finally(() => {
         if (active) setLoading(false)
@@ -56,14 +58,14 @@ export default function BlogDetail() {
   }, [id])
 
   useShareAppMessage(() => ({
-    title: article?.title || 'DinQorAI 博客',
+    title: article?.title || t('ui.dinqoraiBlog'),
     path: `/pages/blog-detail/index?id=${id}`,
   }))
 
   return (
     <View className="detail-page">
-      <NavBar title="文章详情" showBack />
-      {loading ? <Text className="data-state">正在加载文章...</Text> : null}
+      <NavBar title={t('ui.articleDetails')} showBack />
+      {loading ? <Text className="data-state">{t('ui.loadingArticles')}</Text> : null}
       {error ? <Text className="data-state error">{error}</Text> : null}
       {article ? (
         <>
@@ -72,7 +74,10 @@ export default function BlogDetail() {
             <View className="avatar-mini">X</View>
             <Text>{article.author}</Text>
             <Text>· {article.date}</Text>
-            <Text>· 阅读 {article.readTime}</Text>
+            <Text>
+              {t('ui.views')}
+              {article.readTime}
+            </Text>
             <View className="views">
               <Icon name="eye" />
               <Text>{article.views.toLocaleString()}</Text>
@@ -97,7 +102,7 @@ export default function BlogDetail() {
           </View>
           <View className="detail-share-row">
             <Button className="share-trigger" openType="share">
-              分享
+              {t('ui.share')}
             </Button>
           </View>
         </>

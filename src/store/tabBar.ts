@@ -4,6 +4,7 @@ import type { TabKey } from '@/utils/tabBarRoute'
 
 type TabBarState = {
   active: TabKey
+  mainTab: Exclude<TabKey, 'chat'>
   setActive: (active: TabKey) => void
   refreshVersions: Record<TabKey, number>
   refreshTab: (tab: TabKey) => void
@@ -13,7 +14,8 @@ type TabBarState = {
 
 export const useTabBarStore = create<TabBarState>(set => ({
   active: 'chat',
-  setActive: active => set({ active }),
+  mainTab: 'calendar',
+  setActive: active => set(active === 'chat' ? { active } : { active, mainTab: active }),
   refreshVersions: {
     chat: 0,
     calendar: 0,
@@ -32,6 +34,12 @@ export const useTabBarStore = create<TabBarState>(set => ({
   pendingBlogTag: null,
   setPendingBlogTag: pendingBlogTag => set({ pendingBlogTag }),
 }))
+
+export function exitChat() {
+  const { mainTab, setActive } = useTabBarStore.getState()
+  setActive(mainTab)
+  void Taro.hideKeyboard().catch(() => undefined)
+}
 
 /** Centralized top-level navigation action used by the TabBar and in-panel shortcuts. */
 export function navigateToTab(tab: TabKey, vibration: 'light' | 'medium' | 'heavy' = 'light') {

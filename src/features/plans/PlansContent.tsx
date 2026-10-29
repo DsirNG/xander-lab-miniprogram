@@ -1,3 +1,4 @@
+import { t, useLocale } from '@/i18n'
 import { Text, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { PlanCard } from '@/components/PlanCard'
@@ -6,30 +7,40 @@ import { NavBar } from '@/components/NavBar'
 import type { PlansController } from './usePlansController'
 
 export function PlansContent({ controller }: { controller: PlansController }) {
-  const { user, userLoaded, plans, total, loading, loadedOnce, runAction, openDetail, openCreate } =
-    controller
+  useLocale()
+  const {
+    hasSession,
+    userLoaded,
+    plans,
+    total,
+    loading,
+    loadedOnce,
+    runAction,
+    openDetail,
+    openCreate,
+  } = controller
 
-  if (!userLoaded && !loadedOnce) {
+  if (hasSession && !userLoaded && !loadedOnce) {
     return (
       <View className="page plans-page">
-        <NavBar title="计划" />
-        <Text className="data-state">正在同步计划...</Text>
+        <NavBar title={t('ui.plans')} />
+        <Text className="data-state">{t('ui.syncingPlans')}</Text>
       </View>
     )
   }
 
-  if (!user && !loading) {
+  if (!hasSession) {
     return (
       <View className="page plans-page">
-        <NavBar title="计划" />
+        <NavBar title={t('ui.plans')} />
         <View className="empty-state">
-          <Text className="empty-title">登录后查看定时发文计划</Text>
-          <Text className="empty-desc">登录后可使用博客智能体的定时发文能力</Text>
+          <Text className="empty-title">{t('ui.signInToViewPublishingPlans')}</Text>
+          <Text className="empty-desc">{t('ui.signInToSchedulePostsWithThe')}</Text>
           <View
             className="empty-btn"
             onClick={() => void Taro.navigateTo({ url: '/pages/login/index' })}
           >
-            去登录
+            {t('ui.signIn')}
           </View>
         </View>
       </View>
@@ -38,20 +49,22 @@ export function PlansContent({ controller }: { controller: PlansController }) {
 
   return (
     <View className="page plans-page">
-      <NavBar title="计划" />
+      <NavBar title={t('ui.plans')} />
       <View className="plans-toolbar">
         <View className="new-plan-btn" onClick={openCreate}>
           <Icon name="plus" />
-          <Text>新建</Text>
+          <Text>{t('ui.new')}</Text>
         </View>
       </View>
-      {loading && plans.length === 0 ? <Text className="data-state">正在加载计划...</Text> : null}
+      {loading && plans.length === 0 ? (
+        <Text className="data-state">{t('ui.loadingPlans')}</Text>
+      ) : null}
       {loadedOnce && plans.length === 0 ? (
         <View className="empty-state">
-          <Text className="empty-title">还没有定时发文计划</Text>
-          <Text className="empty-desc">创建一个计划，让博客智能体按主题自动生成并发布文章</Text>
+          <Text className="empty-title">{t('ui.noPublishingPlansYet')}</Text>
+          <Text className="empty-desc">{t('ui.createAPlanToGenerateAndPublish')}</Text>
           <View className="empty-btn" onClick={openCreate}>
-            新建计划
+            {t('ui.newPlan')}
           </View>
         </View>
       ) : null}
@@ -60,9 +73,9 @@ export function PlansContent({ controller }: { controller: PlansController }) {
           <PlanCard plan={plan} onAction={action => void runAction(plan.id, action)} />
         </View>
       ))}
-      {loading && plans.length > 0 ? <Text className="data-state">加载中...</Text> : null}
+      {loading && plans.length > 0 ? <Text className="data-state">{t('ui.loading')}</Text> : null}
       {loadedOnce && !loading && plans.length > 0 && plans.length >= total ? (
-        <Text className="data-state">已展示全部计划</Text>
+        <Text className="data-state">{t('ui.allPlansShown')}</Text>
       ) : null}
     </View>
   )

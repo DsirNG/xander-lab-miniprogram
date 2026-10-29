@@ -3,6 +3,7 @@ import Taro from '@tarojs/taro'
 import { memo, useEffect, useRef, useState } from 'react'
 import { navigateToTab, useTabBarStore } from '@/store/tabBar'
 import { TAB_ITEMS } from '@/utils/tabBarRoute'
+import { useLocale } from '@/i18n'
 import { AnimatedIcon } from './AnimatedIcon'
 import './TabBar.scss'
 
@@ -24,12 +25,12 @@ const TAB_BAR_SIDE_INSET = 20
 const TAB_BAR_PADDING = 6
 
 function TabBarBase() {
+  useLocale()
   const active = useTabBarStore(state => state.active)
   const renderCountRef = useRef(0)
   const boundsRef = useRef<TabBarBounds | null>(null)
   const pressRef = useRef<PressState | null>(null)
   const suppressClickRef = useRef(false)
-  const [isPressed, setIsPressed] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
   const [dragOffset, setDragOffset] = useState<number | null>(null)
   renderCountRef.current += 1
@@ -112,8 +113,6 @@ function TabBarBase() {
         startY: touch.clientY,
         didMove: false,
       }
-      // A press expands the capsule in place; movement upgrades it to drag.
-      setIsPressed(true)
       setIsDragging(false)
       setDragOffset(null)
     }
@@ -137,7 +136,6 @@ function TabBarBase() {
     pressRef.current = null
     if (!press) return
 
-    setIsPressed(false)
     setIsDragging(false)
     setDragOffset(null)
 
@@ -159,7 +157,6 @@ function TabBarBase() {
   const handleTouchCancel: CommonEventFunction = event => {
     const didMove = pressRef.current?.didMove ?? false
     pressRef.current = null
-    setIsPressed(false)
     setIsDragging(false)
     setDragOffset(null)
     if (didMove) {
@@ -206,7 +203,7 @@ function TabBarBase() {
 
   return (
     <View
-      className={`tab-bar ${isDragging ? 'tab-bar--dragging' : ''}`}
+      className="tab-bar"
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
       onTouchCancel={handleTouchCancel}
@@ -214,17 +211,13 @@ function TabBarBase() {
       <View className="tab-bar__glass" />
       <View id="tab-list" className="tab-list">
         <View
-          className={`active-pill active-pill--${safeActiveIndex} ${
-            isPressed || isDragging ? 'active-pill--expanded' : ''
-          } ${isDragging ? 'active-pill--dragging' : ''}`}
-          style={
-            dragOffset === null
-              ? undefined
-              : {
-                  transform: `translate3d(${dragOffset}px, 0, 0)`,
-                }
-          }
-        />
+          className={`pill-position ${isDragging ? 'pill-position--dragging' : ''}`}
+          style={{
+            transform: `translate3d(calc(${safeActiveIndex * 100}% + ${dragOffset ?? 0}px), 0, 0)`,
+          }}
+        >
+          <View className="active-pill" />
+        </View>
         {TAB_ITEMS.map((item, index) => (
           <View
             className={`tab-item ${active === item.key ? 'active' : ''}`}

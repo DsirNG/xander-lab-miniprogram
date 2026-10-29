@@ -1,3 +1,4 @@
+import { t, useLocale } from '@/i18n'
 import { Button, Input, Picker, Switch, Text, Textarea, View } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import { useEffect, useState } from 'react'
@@ -22,6 +23,7 @@ const TIMEZONES = [
 ]
 
 export default function PlanCreate() {
+  useLocale()
   const { params } = useRouter()
   const editId = params.id ? Number(params.id) : null
   const [mode, setMode] = useState<Mode>('custom')
@@ -59,7 +61,7 @@ export default function PlanCreate() {
         setTone(plan.tone || '')
         setTopicsQueue((plan.topics || []).join('\n'))
       })
-      .catch(error => showToast(error instanceof Error ? error.message : '计划加载失败'))
+      .catch(error => showToast(error instanceof Error ? error.message : t('ui.unableToLoadPlan')))
       .finally(() => {
         if (active) setLoadingPlan(false)
       })
@@ -71,7 +73,7 @@ export default function PlanCreate() {
   const handleCustomCreate = async () => {
     const trimmedTopic = topic.trim()
     if (!trimmedTopic) {
-      showToast('请输入计划主题')
+      showToast(t('ui.enterAPlanTopic'))
       return
     }
     if (loading) return
@@ -82,7 +84,7 @@ export default function PlanCreate() {
         .map(item => item.trim())
         .filter(Boolean)
       if (times.length === 0 || times.some(time => !/^([01]\d|2[0-3]):[0-5]\d$/.test(time))) {
-        showToast('请输入正确的触发时间')
+        showToast(t('ui.enterAValidScheduledTime'))
         return
       }
       const payload = {
@@ -100,10 +102,10 @@ export default function PlanCreate() {
       }
       if (editId) await planApi.update(editId, payload)
       else await planApi.create(payload)
-      showToast(editId ? '计划已更新' : '计划已创建')
+      showToast(editId ? t('ui.planUpdated') : t('ui.planCreated'))
       setTimeout(() => Taro.navigateBack(), 700)
     } catch (e) {
-      showToast(e instanceof Error ? e.message : '创建失败')
+      showToast(e instanceof Error ? e.message : t('ui.unableToCreatePlan'))
     } finally {
       setLoading(false)
     }
@@ -112,12 +114,12 @@ export default function PlanCreate() {
   const handleAiGenerate = async () => {
     const trimmedTopic = topic.trim()
     if (!trimmedTopic) {
-      showToast('请输入主题')
+      showToast(t('ui.enterATopic'))
       return
     }
     const dayCount = Number(days)
     if (!dayCount || dayCount < 1 || dayCount > 30) {
-      showToast('天数需在 1-30 之间')
+      showToast(t('ui.chooseBetween1And30Days'))
       return
     }
     if (loading) return
@@ -133,10 +135,10 @@ export default function PlanCreate() {
         audience: audience.trim() || undefined,
         tone: tone.trim() || undefined,
       })
-      showToast(`已生成 ${result.length} 个计划`)
+      showToast(t('preferences.generatedPlans', { count: result.length }))
       setGeneratedPlans(result)
     } catch (e) {
-      showToast(e instanceof Error ? e.message : '生成失败')
+      showToast(e instanceof Error ? e.message : t('ui.generationFailed'))
     } finally {
       setLoading(false)
     }
@@ -144,7 +146,7 @@ export default function PlanCreate() {
 
   return (
     <View className="detail-page plan-create-page">
-      <NavBar title={editId ? '编辑计划' : '新建计划'} showBack />
+      <NavBar title={editId ? t('ui.editPlan') : t('ui.newPlan')} showBack />
 
       {!editId ? (
         <View className="segmented">
@@ -152,25 +154,27 @@ export default function PlanCreate() {
             className={`segment ${mode === 'custom' ? 'active' : ''}`}
             onClick={() => setMode('custom')}
           >
-            自定义创建
+            {t('ui.customPlan')}
           </Text>
           <Text
             className={`segment ${mode === 'ai' ? 'active' : ''}`}
             onClick={() => setMode('ai')}
           >
-            AI 生成
+            {t('ui.generateWithAi')}
           </Text>
         </View>
       ) : null}
 
-      {loadingPlan ? <Text className="data-state">正在加载计划...</Text> : null}
+      {loadingPlan ? <Text className="data-state">{t('ui.loadingPlans')}</Text> : null}
       {!loadingPlan ? (
         <View className="plan-form-card">
           <View className="form-item">
-            <Text className="form-label">{mode === 'custom' ? '计划主题' : '主题方向'}</Text>
+            <Text className="form-label">
+              {mode === 'custom' ? t('ui.planTopic') : t('ui.topic')}
+            </Text>
             <Textarea
               className="form-textarea form-textarea-short"
-              placeholder="例如：Java 并发编程系列"
+              placeholder={t('ui.forExampleJavaConcurrencySeries')}
               value={topic}
               maxlength={500}
               onInput={e => setTopic(e.detail.value)}
@@ -180,7 +184,7 @@ export default function PlanCreate() {
           {mode === 'custom' ? (
             <>
               <View className="form-item">
-                <Text className="form-label">触发时间（HH:mm，多个用逗号分隔）</Text>
+                <Text className="form-label">{t('ui.scheduledTimesHhMmCommaSeparated')}</Text>
                 <View className="time-field-row">
                   <Input
                     className="form-input"
@@ -193,15 +197,15 @@ export default function PlanCreate() {
                     value={triggerTimes.split(/[,，]/)[0]?.trim() || '09:00'}
                     onChange={event => setTriggerTimes(String(event.detail.value))}
                   >
-                    <Text className="field-picker-action">选择</Text>
+                    <Text className="field-picker-action">{t('ui.choose')}</Text>
                   </Picker>
                 </View>
               </View>
               <View className="form-item">
-                <Text className="form-label">主题队列（每行一个，留空则由主题自动生成）</Text>
+                <Text className="form-label">{t('ui.topicQueueOnePerLineLeaveBlank')}</Text>
                 <Textarea
                   className="form-textarea form-textarea-queue"
-                  placeholder={'分布式锁的三种实现\n缓存与数据库一致性\n限流算法实战'}
+                  placeholder={t('preferences.topicQueuePlaceholder')}
                   value={topicsQueue}
                   onInput={e => setTopicsQueue(e.detail.value)}
                 />
@@ -210,7 +214,7 @@ export default function PlanCreate() {
           ) : (
             <View className="ai-row">
               <View className="form-item ai-col">
-                <Text className="form-label">天数（1-30）</Text>
+                <Text className="form-label">{t('ui.days130')}</Text>
                 <Input
                   className="form-input"
                   placeholder="7"
@@ -220,7 +224,7 @@ export default function PlanCreate() {
                 />
               </View>
               <View className="form-item ai-col">
-                <Text className="form-label">每天发布时间</Text>
+                <Text className="form-label">{t('ui.dailyPublishingTime')}</Text>
                 <Picker
                   mode="time"
                   value={aiTime}
@@ -236,29 +240,29 @@ export default function PlanCreate() {
           )}
 
           <View className="form-item">
-            <Text className="form-label">目标读者（可选）</Text>
+            <Text className="form-label">{t('ui.audienceOptional')}</Text>
             <Input
               className="form-input"
-              placeholder="例如：3-5 年经验的 Java 开发者"
+              placeholder={t('ui.forExampleJavaDevelopersWith35')}
               value={audience}
               maxlength={120}
               onInput={e => setAudience(e.detail.value)}
             />
           </View>
           <View className="form-item">
-            <Text className="form-label">写作语气（可选）</Text>
+            <Text className="form-label">{t('ui.toneOptional')}</Text>
             <Input
               className="form-input"
-              placeholder="例如：专业、轻松"
+              placeholder={t('ui.forExampleProfessionalAndApproachable')}
               value={tone}
               maxlength={60}
               onInput={e => setTone(e.detail.value)}
             />
           </View>
           <View className="form-item">
-            <Text className="form-label">同步设置</Text>
+            <Text className="form-label">{t('ui.crossPosting')}</Text>
             <View className="switch-row">
-              <Text className="switch-label">发布后同步到 CSDN</Text>
+              <Text className="switch-label">{t('ui.crossPostToCsdn')}</Text>
               <Switch
                 checked={syncCsdn}
                 onChange={e => setSyncCsdn(e.detail.value)}
@@ -266,7 +270,7 @@ export default function PlanCreate() {
               />
             </View>
             <View className="switch-row">
-              <Text className="switch-label">发布后同步到掘金</Text>
+              <Text className="switch-label">{t('ui.crossPostToJuejin')}</Text>
               <Switch
                 checked={syncJuejin}
                 onChange={e => setSyncJuejin(e.detail.value)}
@@ -275,7 +279,7 @@ export default function PlanCreate() {
             </View>
           </View>
           <View className="form-item">
-            <Text className="form-label">时区</Text>
+            <Text className="form-label">{t('ui.timeZone')}</Text>
             <Picker
               mode="selector"
               range={TIMEZONES}
@@ -298,18 +302,22 @@ export default function PlanCreate() {
           disabled={loading}
           onClick={mode === 'custom' ? handleCustomCreate : handleAiGenerate}
         >
-          {mode === 'custom' ? (editId ? '保存修改' : '创建计划') : 'AI 生成计划'}
+          {mode === 'custom'
+            ? editId
+              ? t('ui.saveChanges')
+              : t('ui.createPlan')
+            : t('ui.generatePlansWithAi')}
         </Button>
       ) : null}
       {mode === 'ai' ? (
-        <Text className="form-tip ai-tip">AI 将从明天起按主题自动生成每日计划（一次性计划）</Text>
+        <Text className="form-tip ai-tip">{t('ui.aiCreatesDailyOneTimePlansStarting')}</Text>
       ) : null}
       {generatedPlans.length > 0 ? (
         <View className="generated-plans">
           <View className="section-title">
-            <Text>已生成的计划</Text>
+            <Text>{t('ui.generatedPlans')}</Text>
             <Text className="more-link" onClick={() => Taro.navigateBack()}>
-              完成
+              {t('ui.done')}
             </Text>
           </View>
           {generatedPlans.map(plan => (

@@ -1,3 +1,4 @@
+import { t, useLocale } from '@/i18n'
 import { Input, ScrollView, Text, View } from '@tarojs/components'
 import { ArticleCard } from '@/components/ArticleCard'
 import { Icon } from '@/components/Icon'
@@ -5,6 +6,7 @@ import { NavBar } from '@/components/NavBar'
 import type { BlogController } from './useBlogController'
 
 export function BlogContent({ controller }: { controller: BlogController }) {
+  useLocale()
   const {
     articles,
     categories,
@@ -27,12 +29,12 @@ export function BlogContent({ controller }: { controller: BlogController }) {
 
   return (
     <View className="page blog-page">
-      <NavBar title="博客" />
+      <NavBar title={t('ui.blogs')} />
       <View className="inline-search">
         <Icon name="search" />
         <Input
           className="inline-search-input"
-          placeholder="搜索文章、标签或关键词"
+          placeholder={t('ui.searchArticlesTagsOrKeywords')}
           placeholderClass="search-placeholder"
           value={searchInput}
           onInput={e => setSearchInput(e.detail.value)}
@@ -47,7 +49,7 @@ export function BlogContent({ controller }: { controller: BlogController }) {
               submitSearch('')
             }}
           >
-            清除
+            {t('ui.clear')}
           </Text>
         ) : null}
       </View>
@@ -56,7 +58,7 @@ export function BlogContent({ controller }: { controller: BlogController }) {
           className={`chip ${category === '' && tag === '' ? 'active' : ''}`}
           onClick={selectAll}
         >
-          全部
+          {t('ui.all')}
         </Text>
         {categories.map(item => {
           const value = item.code || item.name
@@ -83,25 +85,25 @@ export function BlogContent({ controller }: { controller: BlogController }) {
       {hasFilter ? (
         <View className="filter-bar">
           <Text className="filter-summary">
-            {search ? `关键词「${search}」` : ''}
-            {category ? `分类「${category}」` : ''}
-            {tag ? `标签「${tag}」` : ''}
+            {search ? t('preferences.keywordFilter', { value: search }) : ''}
+            {category ? t('preferences.categoryFilter', { value: category }) : ''}
+            {tag ? t('preferences.tagFilter', { value: tag }) : ''}
           </Text>
           <Text className="filter-clear" onClick={clearFilters}>
-            清除筛选
+            {t('ui.clearFilters')}
           </Text>
         </View>
       ) : null}
       {loading && articles.length === 0 ? (
-        <Text className="data-state">正在加载文章...</Text>
+        <Text className="data-state">{t('ui.loadingArticles')}</Text>
       ) : null}
       {loadedOnce && !loading && articles.length === 0 ? (
         <View className="empty-state">
-          <Text className="empty-title">没有找到相关文章</Text>
-          <Text className="empty-desc">换个关键词或清除筛选条件试试</Text>
+          <Text className="empty-title">{t('ui.noMatchingArticles')}</Text>
+          <Text className="empty-desc">{t('ui.tryAnotherKeywordOrClearYourFilters')}</Text>
           {hasFilter ? (
             <View className="empty-btn" onClick={clearFilters}>
-              查看全部文章
+              {t('ui.viewAllArticles')}
             </View>
           ) : null}
         </View>
@@ -109,9 +111,11 @@ export function BlogContent({ controller }: { controller: BlogController }) {
       {articles.map(article => (
         <ArticleCard key={article.id} article={article} />
       ))}
-      {loading && articles.length > 0 ? <Text className="data-state">加载中...</Text> : null}
+      {loading && articles.length > 0 ? (
+        <Text className="data-state">{t('ui.loading')}</Text>
+      ) : null}
       {loadedOnce && !loading && articles.length > 0 && articles.length >= total ? (
-        <Text className="data-state">已展示全部文章</Text>
+        <Text className="data-state">{t('ui.allArticlesShown')}</Text>
       ) : null}
     </View>
   )

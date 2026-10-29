@@ -1,5 +1,5 @@
 import Taro from '@tarojs/taro'
-import { tokenStorage } from './http'
+import { API_SERVER_ORIGIN, tokenStorage } from './http'
 
 export type AgentStreamEvent = {
   id?: number
@@ -48,7 +48,8 @@ export function connectAgentStream(
   let lastEventId = 0
   let socketTask: Taro.SocketTask | null = null
   let receivedFirstEvent = false
-  const url = `wss://api.dinqor.cn/ws/agent?conversationId=${conversationId}&runVersion=${runVersion}`
+  const socketOrigin = API_SERVER_ORIGIN.replace(/^http/, 'ws')
+  const url = `${socketOrigin}/ws/agent?conversationId=${conversationId}&runVersion=${runVersion}`
 
   const trace = (message: string, extra = '') => {
     console.info(

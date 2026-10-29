@@ -16,6 +16,8 @@ function isTabKey(value?: string): value is TabKey {
 
 export default function MainPage() {
   const active = useTabBarStore(state => state.active)
+  const mainTab = useTabBarStore(state => state.mainTab)
+  const visibleMainTab = active === 'chat' ? mainTab : active
   const setActive = useTabBarStore(state => state.setActive)
   const refreshVersions = useTabBarStore(state => state.refreshVersions)
   const [visited, setVisited] = useState<Set<TabKey>>(() => new Set(['chat']))
@@ -73,33 +75,41 @@ export default function MainPage() {
   }, [active])
 
   return (
-    <View className="main-shell">
-      <View className="main-shell__content">
-        <ChatPanel active={active === 'chat'} refreshVersion={refreshVersions.chat} />
+    <View className={`main-shell ${active === 'chat' ? 'main-shell--chat' : ''}`}>
+      <View className="main-shell__track">
+        <View className="main-shell__chat-page">
+          <ChatPanel active={active === 'chat'} refreshVersion={refreshVersions.chat} />
+        </View>
+        <View className="main-shell__main-page">
+          <View className="main-shell__content">
+            {visited.has('calendar') || visibleMainTab === 'calendar' ? (
+              <PlansPanel
+                active={visibleMainTab === 'calendar'}
+                pageShowCount={pageShowCount}
+                refreshVersion={refreshVersions.calendar}
+              />
+            ) : null}
 
-        {visited.has('calendar') || active === 'calendar' ? (
-          <PlansPanel
-            active={active === 'calendar'}
-            pageShowCount={pageShowCount}
-            refreshVersion={refreshVersions.calendar}
-          />
-        ) : null}
+            {visited.has('article') || visibleMainTab === 'article' ? (
+              <BlogPanel
+                active={visibleMainTab === 'article'}
+                pageShowCount={pageShowCount}
+                initialTag={initialBlogTag}
+                refreshVersion={refreshVersions.article}
+              />
+            ) : null}
 
-        {visited.has('article') || active === 'article' ? (
-          <BlogPanel
-            active={active === 'article'}
-            pageShowCount={pageShowCount}
-            initialTag={initialBlogTag}
-            refreshVersion={refreshVersions.article}
-          />
-        ) : null}
+            {visited.has('user') || visibleMainTab === 'user' ? (
+              <ProfilePanel
+                active={visibleMainTab === 'user'}
+                refreshVersion={refreshVersions.user}
+              />
+            ) : null}
+          </View>
 
-        {visited.has('user') || active === 'user' ? (
-          <ProfilePanel active={active === 'user'} refreshVersion={refreshVersions.user} />
-        ) : null}
+          <TabBar />
+        </View>
       </View>
-
-      <TabBar />
     </View>
   )
 }

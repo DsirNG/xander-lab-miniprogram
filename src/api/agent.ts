@@ -1,4 +1,6 @@
+import { t } from '@/i18n'
 import { request, uploadFile } from './http'
+import { getLocale, getReplyLanguage } from '@/i18n'
 
 export type AgentAttachment = {
   url: string
@@ -43,8 +45,15 @@ export type ConversationSnapshot = {
 export const agentApi = {
   uploadAttachment: (filePath: string) =>
     uploadFile<AgentAttachment>('/api/agent/conversations/attachments', filePath),
-  listConversations: () =>
-    request<AgentConversation[]>('/api/agent/conversations', { method: 'GET' }),
+  listConversations: async (): Promise<AgentConversation[]> => {
+    const result = await request<AgentConversation[] | { items: AgentConversation[] }>(
+      '/api/agent/conversations',
+      { method: 'GET' },
+    )
+    if (Array.isArray(result)) return result
+    if (Array.isArray(result?.items)) return result.items
+    throw new Error(t('ui.invalidConversationListResponse'))
+  },
   createConversation: (content: string) =>
     request<ConversationSnapshot>('/api/agent/conversations', {
       method: 'POST',
@@ -56,7 +65,7 @@ export const agentApi = {
   sendMessage: (id: number, content: string, attachments: AgentAttachment[] = []) =>
     request<number>(`/api/agent/conversations/${id}/messages`, {
       method: 'POST',
-      data: { content, attachments },
+      data: { content, attachments, locale: getLocale(), replyLanguage: getReplyLanguage() },
     }),
   cancel: (id: number) =>
     request<AgentConversation>(`/api/agent/conversations/${id}/cancel`, { method: 'POST' }),

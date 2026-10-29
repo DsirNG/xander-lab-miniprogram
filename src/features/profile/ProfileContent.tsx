@@ -7,7 +7,7 @@ import { profileApi } from '@/api/profile'
 import { Icon } from '@/components/Icon'
 import { NavBar } from '@/components/NavBar'
 import { usePanelActive } from '@/hooks/usePanelActive'
-import { t } from '@/i18n'
+import { t, useLocale } from '@/i18n'
 import { navigateToTab } from '@/store/tabBar'
 import { useUserStore } from '@/store/user'
 import type { TabKey } from '@/utils/tabBarRoute'
@@ -47,6 +47,7 @@ export type ProfileContentProps = {
 }
 
 export function ProfileContent({ active, refreshVersion = 0 }: ProfileContentProps) {
+  useLocale()
   const user = useUserStore(state => state.user)
   const setUser = useUserStore(state => state.setUser)
   const [balance, setBalance] = useState<number | null>(null)
@@ -96,14 +97,14 @@ export function ProfileContent({ active, refreshVersion = 0 }: ProfileContentPro
 
   const navigateForUser = useCallback(
     (url: string) => {
-      navigate(user ? url : '/pages/login/index')
+      navigate(authApi.isLoggedIn() ? url : '/pages/login/index')
     },
-    [navigate, user],
+    [navigate],
   )
 
   const handleWechatLogin = async () => {
-    if (user) {
-      navigate('/pages/account-settings/index')
+    if (authApi.isLoggedIn()) {
+      navigate('/pages/account-profile/index')
       return
     }
     if (Taro.getEnv() !== Taro.ENV_TYPE.WEAPP) {
@@ -131,8 +132,6 @@ export function ProfileContent({ active, refreshVersion = 0 }: ProfileContentPro
       setLoading(false)
     }
   }
-
-  const showComingSoon = () => showToast(t('profile.comingSoon'))
 
   return (
     <View className="page profile-page">
@@ -191,12 +190,23 @@ export function ProfileContent({ active, refreshVersion = 0 }: ProfileContentPro
         </View>
       </View>
 
+      <View
+        className="profile-membership"
+        hoverClass="profile-menu-row--pressed"
+        onClick={() => navigateForUser('/pages/subscription/index')}
+      >
+        <View className="profile-membership-icon">
+          <Icon name="star" />
+        </View>
+        <View className="profile-membership-copy">
+          <Text className="profile-membership-title">{t('profile.subscription')}</Text>
+          <Text className="profile-membership-description">{t('preferences.membershipHint')}</Text>
+        </View>
+        <Icon name="right" />
+      </View>
+
+      <Text className="profile-section-title">{t('preferences.workspaceGroup')}</Text>
       <View className="profile-menu-group profile-menu-group--primary">
-        <ProfileMenuRow
-          icon="star"
-          label={t('profile.subscription')}
-          onClick={() => navigateForUser('/pages/subscription/index')}
-        />
         <ProfileMenuRow
           icon="star"
           label={t('profile.recitation')}
@@ -205,28 +215,22 @@ export function ProfileContent({ active, refreshVersion = 0 }: ProfileContentPro
         <ProfileMenuRow
           icon="calendar"
           label={t('profile.plans')}
-          onClick={() => (user ? navigateMainTab('calendar') : navigate('/pages/login/index'))}
+          onClick={() =>
+            authApi.isLoggedIn() ? navigateMainTab('calendar') : navigate('/pages/login/index')
+          }
         />
-        <ProfileMenuRow
-          icon="article"
-          label={t('profile.blogs')}
-          onClick={() => navigateForUser('/pages/blog-manage/index')}
-        />
-      </View>
-
-      <View className="profile-menu-group profile-menu-group--secondary">
         <ProfileMenuRow
           icon="chat"
           label={t('profile.notifications')}
           onClick={() => navigateForUser('/pages/notifications/index')}
         />
-        <ProfileMenuRow icon="star" label={t('profile.favorites')} onClick={showComingSoon} />
-        <ProfileMenuRow icon="discover" label={t('profile.help')} onClick={showComingSoon} />
-        <ProfileMenuRow icon="chat" label={t('profile.feedback')} onClick={showComingSoon} />
+      </View>
+
+      <View className="profile-menu-group profile-menu-group--secondary">
         <ProfileMenuRow
           icon="user"
           label={t('profile.settings')}
-          onClick={() => navigateForUser('/pages/account-settings/index')}
+          onClick={() => navigate('/pages/account-settings/index')}
         />
       </View>
     </View>

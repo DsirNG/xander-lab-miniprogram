@@ -5,7 +5,7 @@ import { recitationApi, type RecitationMaterial } from '@/api/recitation'
 import { NavBar } from '@/components/NavBar'
 import { Button } from '@/components/ui/Button'
 import { PageState } from '@/components/ui/PageState'
-import { t } from '@/i18n'
+import { t, useLocale } from '@/i18n'
 import './index.scss'
 
 type PracticeMode = 'full' | 'cloze'
@@ -19,6 +19,7 @@ function createCloze(content: string) {
 }
 
 export default function RecitationPracticePage() {
+  useLocale()
   const [materialId, setMaterialId] = useState(0)
   const [material, setMaterial] = useState<RecitationMaterial | null>(null)
   const [loading, setLoading] = useState(true)

@@ -7,7 +7,7 @@ import {
   type NotificationListResult,
 } from '@/api/notifications'
 import { NavBar } from '@/components/NavBar'
-import { getLocale, t, type Locale } from '@/i18n'
+import { getLocale, t, type Locale, useLocale } from '@/i18n'
 import './index.scss'
 
 const PAGE_SIZE = 20
@@ -42,6 +42,7 @@ function formatNotificationTime(value: string) {
 }
 
 export default function NotificationsPage() {
+  useLocale()
   const [items, setItems] = useState<NotificationItem[]>([])
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)

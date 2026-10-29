@@ -4,12 +4,13 @@ import { useState } from 'react'
 import { authApi } from '@/api/auth'
 import { NavBar } from '@/components/NavBar'
 import { Button } from '@/components/ui/Button'
-import { t } from '@/i18n'
+import { t, useLocale } from '@/i18n'
 import './index.scss'
 
 const EMAIL_PATTERN = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/
 
 export default function SecurityCenterPage() {
+  useLocale()
   const [email, setEmail] = useState('')
   const [boundEmail, setBoundEmail] = useState('')
   const [code, setCode] = useState('')

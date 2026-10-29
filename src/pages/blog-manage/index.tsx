@@ -1,3 +1,4 @@
+import { t, useLocale } from '@/i18n'
 import { Input, Text, View } from '@tarojs/components'
 import Taro, { useDidShow, useReachBottom } from '@tarojs/taro'
 import { useCallback, useState } from 'react'
@@ -8,10 +9,30 @@ import { BLOG_STATUS_TEXT } from '@/utils/format'
 import './index.scss'
 
 const STATUS_OPTIONS: Array<{ label: string; value: number | undefined }> = [
-  { label: '全部', value: undefined },
-  { label: '草稿', value: 0 },
-  { label: '已发布', value: 1 },
-  { label: '回收站', value: -1 },
+  {
+    get label() {
+      return t('ui.all')
+    },
+    value: undefined,
+  },
+  {
+    get label() {
+      return t('ui.draft')
+    },
+    value: 0,
+  },
+  {
+    get label() {
+      return t('ui.published')
+    },
+    value: 1,
+  },
+  {
+    get label() {
+      return t('ui.trash')
+    },
+    value: -1,
+  },
 ]
 
 function showToast(title: string) {
@@ -19,6 +40,7 @@ function showToast(title: string) {
 }
 
 export default function BlogManage() {
+  useLocale()
   const [status, setStatus] = useState<number | undefined>(undefined)
   const [articles, setArticles] = useState<Article[]>([])
   const [page, setPage] = useState(1)
@@ -48,7 +70,7 @@ export default function BlogManage() {
         setTotal(result.total)
         setPage(targetPage)
       } catch (e) {
-        showToast(e instanceof Error ? e.message : '文章列表加载失败')
+        showToast(e instanceof Error ? e.message : t('ui.unableToLoadArticles'))
       } finally {
         setLoading(false)
         setLoadedOnce(true)
@@ -78,10 +100,16 @@ export default function BlogManage() {
     setBusyId(article.id)
     try {
       await blogApi.updateArticleStatus(article.id, target)
-      showToast(target === 1 ? '已发布' : target === 0 ? '已转为草稿' : '已移入回收站')
+      showToast(
+        target === 1
+          ? t('ui.published')
+          : target === 0
+            ? t('ui.movedToDrafts')
+            : t('ui.movedToTrash'),
+      )
       load(1, false)
     } catch (e) {
-      showToast(e instanceof Error ? e.message : '操作失败')
+      showToast(e instanceof Error ? e.message : t('ui.operationFailed'))
     } finally {
       setBusyId(null)
     }
@@ -90,8 +118,10 @@ export default function BlogManage() {
   const removeArticle = async (article: Article, permanent: boolean) => {
     if (busyId !== null) return
     const confirmed = await Taro.showModal({
-      title: permanent ? '永久删除' : '删除文章',
-      content: permanent ? '永久删除后不可恢复，确定继续吗？' : '文章将移入回收站，可随时恢复',
+      title: permanent ? t('ui.deletePermanently') : t('ui.deleteArticle'),
+      content: permanent
+        ? t('ui.permanentlyDeleteThisArticleThisCannotBe')
+        : t('ui.moveThisArticleToTrashYouCan'),
       confirmColor: '#d14343',
     })
     if (!confirmed.confirm) return
@@ -99,14 +129,14 @@ export default function BlogManage() {
     try {
       if (permanent) {
         await blogApi.permanentlyDeleteArticle(article.id)
-        showToast('已永久删除')
+        showToast(t('ui.permanentlyDeleted'))
       } else {
         await blogApi.deleteArticle(article.id)
-        showToast('已移入回收站')
+        showToast(t('ui.movedToTrash'))
       }
       load(1, false)
     } catch (e) {
-      showToast(e instanceof Error ? e.message : '操作失败')
+      showToast(e instanceof Error ? e.message : t('ui.operationFailed'))
     } finally {
       setBusyId(null)
     }
@@ -124,28 +154,28 @@ export default function BlogManage() {
     event.stopPropagation()
     const actions: Array<{ label: string; run: () => unknown | Promise<unknown> }> = [
       {
-        label: '编辑',
+        label: t('ui.edit'),
         run: () => Taro.navigateTo({ url: `/pages/publish/index?id=${article.id}` }),
       },
     ]
     if (article.status === 1) {
       actions.push(
         {
-          label: '查看文章',
+          label: t('ui.viewArticle'),
           run: () => Taro.navigateTo({ url: `/pages/blog-detail/index?id=${article.id}` }),
         },
-        { label: '转为草稿', run: () => changeStatus(article, 0) },
+        { label: t('ui.moveToDrafts'), run: () => changeStatus(article, 0) },
       )
     } else if (article.status === 0) {
-      actions.push({ label: '发布', run: () => changeStatus(article, 1) })
+      actions.push({ label: t('ui.publish'), run: () => changeStatus(article, 1) })
     } else {
       actions.push(
-        { label: '恢复到草稿', run: () => changeStatus(article, 0) },
-        { label: '永久删除', run: () => removeArticle(article, true) },
+        { label: t('ui.restoreAsDraft'), run: () => changeStatus(article, 0) },
+        { label: t('ui.deletePermanently'), run: () => removeArticle(article, true) },
       )
     }
     if (article.status !== -1) {
-      actions.push({ label: '移入回收站', run: () => removeArticle(article, false) })
+      actions.push({ label: t('ui.moveToTrash'), run: () => removeArticle(article, false) })
     }
     try {
       const result = await Taro.showActionSheet({ itemList: actions.map(item => item.label) })
@@ -165,14 +195,14 @@ export default function BlogManage() {
 
   return (
     <View className="detail-page">
-      <NavBar title="我的博客" showBack />
+      <NavBar title={t('ui.myArticles')} showBack />
 
       <View className="manage-toolbar">
         <Text
           className="manage-write"
           onClick={() => Taro.navigateTo({ url: '/pages/publish/index' })}
         >
-          写文章
+          {t('ui.writeArticle')}
         </Text>
       </View>
 
@@ -180,7 +210,7 @@ export default function BlogManage() {
         <Icon name="search" />
         <Input
           className="inline-search-input"
-          placeholder="搜索我的文章"
+          placeholder={t('ui.searchMyArticles')}
           value={searchInput}
           confirmType="search"
           onInput={event => setSearchInput(event.detail.value)}
@@ -194,7 +224,7 @@ export default function BlogManage() {
               submitSearch('')
             }}
           >
-            清除
+            {t('ui.clear')}
           </Text>
         ) : null}
       </View>
@@ -211,16 +241,18 @@ export default function BlogManage() {
         ))}
       </View>
 
-      {loading && articles.length === 0 ? <Text className="data-state">正在加载...</Text> : null}
+      {loading && articles.length === 0 ? (
+        <Text className="data-state">{t('ui.loadingData')}</Text>
+      ) : null}
       {loadedOnce && !loading && articles.length === 0 ? (
         <View className="empty-state">
-          <Text className="empty-title">暂无文章</Text>
-          <Text className="empty-desc">去写一篇新文章吧</Text>
+          <Text className="empty-title">{t('ui.noArticlesYet')}</Text>
+          <Text className="empty-desc">{t('ui.writeYourFirstArticle')}</Text>
           <View
             className="empty-btn"
             onClick={() => Taro.navigateTo({ url: '/pages/publish/index' })}
           >
-            去发文
+            {t('ui.startWriting')}
           </View>
         </View>
       ) : null}
@@ -228,13 +260,13 @@ export default function BlogManage() {
       {articles.map(article => (
         <View className="manage-card" key={article.id} onClick={() => gotoDetail(article)}>
           <View className="manage-head">
-            <Text className="manage-title">{article.title || '(无标题)'}</Text>
+            <Text className="manage-title">{article.title || t('ui.untitled')}</Text>
             <Text className="badge badge-gray">
-              {BLOG_STATUS_TEXT[article.status ?? 1] || '未知'}
+              {BLOG_STATUS_TEXT[article.status ?? 1] || t('ui.unknown')}
             </Text>
             <View
               className={`manage-more ${busyId === article.id ? 'is-busy' : ''}`}
-              aria-label="文章操作"
+              aria-label={t('ui.articleActions')}
               onClick={event => showArticleActions(event, article)}
             >
               <Icon name="more" />
@@ -243,13 +275,19 @@ export default function BlogManage() {
           <View className="manage-meta">
             {article.categoryName ? <Text>{article.categoryName}</Text> : null}
             <Text>{article.date}</Text>
-            {article.views != null ? <Text>{article.views} 阅读</Text> : null}
+            {article.views != null ? (
+              <Text>
+                {article.views} {t('ui.viewsLabel')}
+              </Text>
+            ) : null}
           </View>
         </View>
       ))}
-      {loading && articles.length > 0 ? <Text className="data-state">加载中...</Text> : null}
+      {loading && articles.length > 0 ? (
+        <Text className="data-state">{t('ui.loading')}</Text>
+      ) : null}
       {loadedOnce && !loading && articles.length > 0 && articles.length >= total ? (
-        <Text className="data-state">已展示全部文章</Text>
+        <Text className="data-state">{t('ui.allArticlesShown')}</Text>
       ) : null}
     </View>
   )

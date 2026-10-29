@@ -20,7 +20,7 @@ export default defineConfig({
       port: 10086,
       proxy: {
         '/api': {
-          target: 'https://api.dinqor.cn',
+          target: 'https://api.xiaodongding.dpdns.org',
           changeOrigin: true,
         },
       },

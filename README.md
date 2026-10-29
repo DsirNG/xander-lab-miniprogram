@@ -1,5 +1,17 @@
 # DinQorAI 小程序
 
+## 个人设置与对话语言
+
+“我的”保留积分、博客数量、会员和工作台入口；账户、安全、语言、帮助等归入设置。
+界面语言支持中文 / English；Agent 回复语言支持自动 / 中文 / English，按设备保存。
+自动模式参考当前提问和上下文，无法判断时使用界面语言；明确的语言或翻译要求优先。
+语言偏好通过新消息的 `locale` 和 `replyLanguage` 字段传递，不修改原始消息。
+切换语言不会翻译历史消息、清空草稿或重启正在进行的对话。
+
+聊天 WebSocket 与普通 API 共用 `src/api/http.ts` 中的 `API_SERVER_ORIGIN`。
+微信正式环境的 socket 合法域名需包含 `wss://api.xiaodongding.dpdns.org`。
+这是统一客户端连接入口，并未关闭旧域名，也未改变 WebSocket 协议。
+
 基于 Taro 4、React 18 和 TypeScript 的微信/支付宝小程序，功能对齐 PC 端 DinQorAI 平台。同一套代码构建双端：`@tarojs/plugin-platform-weapp` + `@tarojs/plugin-platform-alipay`。
 
 ## 开发
@@ -58,3 +70,9 @@ pnpm dev:h5
 
 - 登录渠道：微信用 `Taro.login`（后端换取 openid）；支付宝渠道后端尚未接入，支付宝端登录入口待支付宝 AppID 配置后实现。
 - 流式 AI 对话采用「HTTP 触发 + WebSocket 事件流」而非 SSE（原生小程序无流式读取能力）；WebSocket 非终态断线按指数退避重连，服务端持久化事件负责重放，客户端按事件 ID 去重。会话快照（`{conversation, messages}`）仅用于进入/恢复会话及终态归并，不使用周期轮询兜底。
+# API 提示语言
+
+普通请求、文件上传和登录刷新自动携带当前界面语言的 `Accept-Language`
+（`zh-CN` / `en`），由公共 API Gateway 返回对应语言的 `message`。
+前端优先使用后端提示，缺失时使用本地翻译。Agent 回复语言独立设置，
+界面语言切换仅影响后续请求，不改写既有文章、聊天记录或业务数据。

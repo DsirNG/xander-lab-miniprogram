@@ -1,3 +1,4 @@
+import { t, useLocale } from '@/i18n'
 import { Button, Input, Picker, Text, Textarea, View } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import { useEffect, useState } from 'react'
@@ -29,6 +30,7 @@ const PUBLISH_REQUEST_KEY = 'dinqorai:miniprogram:publish-request'
 const createRequestId = () => `publish-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
 
 export default function Publish() {
+  useLocale()
   const { params } = useRouter()
   const editId = params.id ? Number(params.id) : null
 
@@ -61,7 +63,7 @@ export default function Publish() {
         setTags(draft.tags || '')
         setContent(draft.content || '')
         setDraftSavedAt(draft.savedAt || null)
-        showToast('已恢复本地草稿')
+        showToast(t('ui.localDraftRestored'))
       }
       setDraftReady(true)
       return
@@ -78,7 +80,7 @@ export default function Publish() {
         setContent(article.content || '')
         setDirty(false)
       })
-      .catch(e => showToast(e instanceof Error ? e.message : '文章加载失败'))
+      .catch(e => showToast(e instanceof Error ? e.message : t('ui.unableToLoadArticle')))
       .finally(() => {
         if (active) setDraftReady(true)
       })
@@ -103,7 +105,7 @@ export default function Publish() {
   useEffect(() => {
     if (!dirty) return
     try {
-      Taro.enableAlertBeforeUnload({ message: '文章还有未保存的修改，确定离开吗？' })
+      Taro.enableAlertBeforeUnload({ message: t('ui.youHaveUnsavedChangesLeaveThisArticle') })
     } catch {
       // H5 或不支持该能力的平台由页面返回按钮二次确认兜底。
     }
@@ -140,15 +142,15 @@ export default function Publish() {
   const submit = async (publish: boolean) => {
     if (!ensureLogin()) return
     if (!title.trim()) {
-      showToast('请输入标题')
+      showToast(t('ui.enterATitle'))
       return
     }
     if (publish && !content.trim()) {
-      showToast('正文不能为空')
+      showToast(t('ui.enterArticleContent'))
       return
     }
     if (publish && !categoryId) {
-      showToast('请选择分类')
+      showToast(t('ui.chooseACategory'))
       return
     }
     if (saving) return
@@ -177,21 +179,21 @@ export default function Publish() {
         await blogApi.createArticle(payload, requestId)
       }
       clearLocalDraft()
-      showToast(publish ? '发布成功' : '草稿已保存')
+      showToast(publish ? t('ui.publishedSuccessfully') : t('ui.draftSaved'))
       setTimeout(() => Taro.navigateBack(), 700)
     } catch (e) {
       if (publish && !editId && !(e instanceof ApiError)) {
         const requestId = Taro.getStorageSync<string>(PUBLISH_REQUEST_KEY)
         if (requestId && (await confirmPublishResult(requestId))) {
           clearLocalDraft()
-          showToast('发布成功')
+          showToast(t('ui.publishedSuccessfully'))
           setTimeout(() => Taro.navigateBack(), 700)
           return
         }
-        showToast('发布结果暂未确认，请稍后在我的博客中查看')
+        showToast(t('ui.publicationIsNotConfirmedYetCheckMy'))
         return
       }
-      showToast(e instanceof Error ? e.message : '保存失败')
+      showToast(e instanceof Error ? e.message : t('ui.unableToSave'))
     } finally {
       setSaving(false)
     }
@@ -212,9 +214,11 @@ export default function Publish() {
       return
     }
     const result = await Taro.showModal({
-      title: '离开编辑',
-      content: editId ? '修改尚未保存，确定离开吗？' : '本地草稿已自动保存，确定离开吗？',
-      confirmText: '离开',
+      title: t('ui.leaveEditor'),
+      content: editId
+        ? t('ui.yourChangesAreNotSavedLeaveAnyway')
+        : t('ui.yourDraftIsSavedLocallyLeaveThe'),
+      confirmText: t('ui.leave'),
       confirmColor: '#d14343',
     })
     if (result.confirm) {
@@ -225,11 +229,15 @@ export default function Publish() {
 
   return (
     <View className="publish-page">
-      <NavBar title={editId ? '编辑文章' : '发布文章'} showBack onBack={handleBack} />
+      <NavBar
+        title={editId ? t('ui.editArticle') : t('ui.publishArticle')}
+        showBack
+        onBack={handleBack}
+      />
 
       <View className="publish-status-row">
         <Text className="publish-save-state">
-          {!editId && draftSavedAt ? '已自动保存' : dirty ? '未保存' : ''}
+          {!editId && draftSavedAt ? t('ui.savedAutomatically') : dirty ? t('ui.notSaved') : ''}
         </Text>
       </View>
 
@@ -238,23 +246,23 @@ export default function Publish() {
           className={`segment ${editorMode === 'edit' ? 'active' : ''}`}
           onClick={() => setEditorMode('edit')}
         >
-          编辑
+          {t('ui.edit')}
         </Text>
         <Text
           className={`segment ${editorMode === 'preview' ? 'active' : ''}`}
           onClick={() => setEditorMode('preview')}
         >
-          预览
+          {t('ui.preview')}
         </Text>
       </View>
 
       {editorMode === 'edit' ? (
         <>
           <View className="form-item">
-            <Text className="form-label">标题 *</Text>
+            <Text className="form-label">{t('ui.title')}</Text>
             <Input
               className="form-input"
-              placeholder="请输入文章标题"
+              placeholder={t('ui.enterTheArticleTitle')}
               value={title}
               maxlength={120}
               onInput={e => {
@@ -264,7 +272,7 @@ export default function Publish() {
             />
           </View>
           <View className="form-item">
-            <Text className="form-label">分类 *</Text>
+            <Text className="form-label">{t('ui.category')}</Text>
             <Picker
               mode="selector"
               range={categories.map(item => item.name)}
@@ -281,17 +289,17 @@ export default function Publish() {
               <View className="form-input picker-value">
                 <Text>
                   {categories[categoryIndex]?.name ||
-                    (categories.length ? '请选择分类' : '暂无分类')}
+                    (categories.length ? t('ui.chooseACategory') : t('ui.noCategories'))}
                 </Text>
                 <Text className="picker-arrow">›</Text>
               </View>
             </Picker>
           </View>
           <View className="form-item">
-            <Text className="form-label">标签（逗号分隔）</Text>
+            <Text className="form-label">{t('ui.tagsCommaSeparated')}</Text>
             <Input
               className="form-input"
-              placeholder="JavaScript, 前端"
+              placeholder={t('ui.javascriptFrontend')}
               value={tags}
               onInput={e => {
                 setTags(e.detail.value)
@@ -300,10 +308,10 @@ export default function Publish() {
             />
           </View>
           <View className="form-item">
-            <Text className="form-label">摘要（可选）</Text>
+            <Text className="form-label">{t('ui.summaryOptional')}</Text>
             <Textarea
               className="form-textarea form-textarea-summary"
-              placeholder="一句话概括文章内容"
+              placeholder={t('ui.summarizeTheArticleInOneSentence')}
               value={summary}
               maxlength={300}
               onInput={e => {
@@ -313,10 +321,10 @@ export default function Publish() {
             />
           </View>
           <View className="form-item">
-            <Text className="form-label">正文（Markdown）*</Text>
+            <Text className="form-label">{t('ui.contentMarkdown')}</Text>
             <Textarea
               className="form-textarea form-textarea-content"
-              placeholder={'# 标题\n\n正文内容，支持 Markdown 语法...'}
+              placeholder={t('preferences.markdownPlaceholder')}
               value={content}
               onInput={e => {
                 setContent(e.detail.value)
@@ -327,7 +335,7 @@ export default function Publish() {
         </>
       ) : (
         <View className="publish-preview">
-          <Text className="publish-preview-title">{title || '未命名文章'}</Text>
+          <Text className="publish-preview-title">{title || t('ui.untitledArticle')}</Text>
           {summary ? <Text className="publish-preview-summary">{summary}</Text> : null}
           {content ? (
             <View className="markdown-body">
@@ -335,8 +343,8 @@ export default function Publish() {
             </View>
           ) : (
             <View className="empty-state publish-preview-empty">
-              <Text className="empty-title">还没有正文内容</Text>
-              <Text className="empty-desc">切回编辑模式开始写作</Text>
+              <Text className="empty-title">{t('ui.noContentYet')}</Text>
+              <Text className="empty-desc">{t('ui.switchToEditToStartWriting')}</Text>
             </View>
           )}
         </View>
@@ -349,7 +357,7 @@ export default function Publish() {
           disabled={saving}
           onClick={() => submit(false)}
         >
-          存草稿
+          {t('ui.saveDraft')}
         </Button>
         <Button
           className="btn btn-primary action-btn"
@@ -357,7 +365,7 @@ export default function Publish() {
           disabled={saving}
           onClick={() => submit(true)}
         >
-          {editId ? '更新发布' : '发布'}
+          {editId ? t('ui.updatePublishedArticle') : t('ui.publish')}
         </Button>
       </View>
     </View>

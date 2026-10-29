@@ -45,7 +45,8 @@ function buildLayout(): NavbarLayout {
 
   let capsule: CapsuleRect | undefined
   try {
-    capsule = Taro.getMenuButtonBoundingClientRect() as CapsuleRect
+    if (process.env.TARO_ENV === 'weapp')
+      capsule = Taro.getMenuButtonBoundingClientRect() as CapsuleRect
   } catch {
     capsule = undefined
   }

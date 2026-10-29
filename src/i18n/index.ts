@@ -1,4 +1,5 @@
 import Taro from '@tarojs/taro'
+import { useSyncExternalStore } from 'react'
 import en from './locales/en'
 import fr from './locales/fr'
 import ja from './locales/ja'
@@ -20,14 +21,59 @@ export type TranslationParams = Record<string, string | number>
 
 const DEFAULT_LOCALE: Locale = 'zh'
 const LOCALE_STORAGE_KEY = 'dinqor_locale'
-const supportedLocales = Object.keys(messages) as Locale[]
+export const supportedLocales = ['zh', 'en'] as const
+export type ReplyLanguage = 'auto' | 'zh' | 'en'
+const REPLY_LANGUAGE_KEY = 'dinqor_reply_language'
+const listeners = new Set<() => void>()
 
 let currentLocale: Locale | null = null
+let currentReplyLanguage: ReplyLanguage | null = null
+
+function notifyLanguageChange() {
+  listeners.forEach(listener => listener())
+}
+
+export function subscribeLanguage(listener: () => void) {
+  listeners.add(listener)
+  return () => {
+    listeners.delete(listener)
+  }
+}
+
+export function useLocale() {
+  return useSyncExternalStore(subscribeLanguage, getLocale, getLocale)
+}
+
+export function getReplyLanguage(): ReplyLanguage {
+  if (currentReplyLanguage) return currentReplyLanguage
+  try {
+    const value = Taro.getStorageSync<string>(REPLY_LANGUAGE_KEY)
+    currentReplyLanguage = value === 'zh' || value === 'en' ? value : 'auto'
+  } catch {
+    currentReplyLanguage = 'auto'
+  }
+  return currentReplyLanguage
+}
+
+export function useReplyLanguage() {
+  return useSyncExternalStore(subscribeLanguage, getReplyLanguage, getReplyLanguage)
+}
+
+export function setReplyLanguage(value: ReplyLanguage) {
+  if (!['auto', 'zh', 'en'].includes(value)) return
+  currentReplyLanguage = value
+  try {
+    Taro.setStorageSync(REPLY_LANGUAGE_KEY, value)
+  } catch {
+    /* Keep the in-memory preference. */
+  }
+  notifyLanguageChange()
+}
 
 function parseLocale(value: unknown): Locale | null {
   if (typeof value !== 'string') return null
   const language = value.trim().toLowerCase().replace('_', '-').split('-')[0]
-  return supportedLocales.includes(language as Locale) ? (language as Locale) : null
+  return supportedLocales.includes(language as 'zh' | 'en') ? (language as Locale) : null
 }
 
 function getSystemLocale(): Locale {
@@ -53,12 +99,14 @@ export function getLocale(): Locale {
 }
 
 export function setLocale(locale: Locale) {
+  if (!supportedLocales.includes(locale as 'zh' | 'en')) return
   currentLocale = locale
   try {
     Taro.setStorageSync(LOCALE_STORAGE_KEY, locale)
   } catch {
     // The in-memory locale still applies when storage is unavailable.
   }
+  notifyLanguageChange()
 }
 
 function readMessage(locale: Locale, key: string): string | undefined {

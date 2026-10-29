@@ -3,11 +3,12 @@ import Taro, { useLoad } from '@tarojs/taro'
 import { useState } from 'react'
 import { authApi } from '@/api/auth'
 import { NavBar } from '@/components/NavBar'
-import { t } from '@/i18n'
+import { t, useLocale } from '@/i18n'
 import { useUserStore } from '@/store/user'
 import './index.scss'
 
 export default function ScanLogin() {
+  useLocale()
   const [ticket, setTicket] = useState('')
   const [loading, setLoading] = useState(false)
   const user = useUserStore(state => state.user)
@@ -20,18 +21,26 @@ export default function ScanLogin() {
       // 仅在用户点击确认后登录，登录成功后继续确认当前二维码。
       if (!user && !authApi.isLoggedIn()) {
         const loginResult = await Taro.login()
-        if (!loginResult.code) throw new Error('微信登录失败，请重试')
+        if (!loginResult.code) throw new Error(t('ui.wechatSignInFailedTryAgain'))
         const response = await authApi.wechatLogin(loginResult.code)
         if (!response.accessToken) {
-          throw new Error(response.pendingBind ? '请先完成微信账号绑定' : '微信登录失败，请重试')
+          throw new Error(
+            response.pendingBind
+              ? t('ui.linkYourWechatAccountFirst')
+              : t('ui.wechatSignInFailedTryAgain'),
+          )
         }
-        await useUserStore.getState().refresh()
+        // 登录响应已包含用户资料，二维码确认不需要再查询 /auth/me。
+        if (response.userInfo) useUserStore.getState().setUser(response.userInfo)
       }
       await authApi.confirmQrLogin(ticket)
       Taro.showToast({ title: t('login.qrConfirmed'), icon: 'success' })
       setTimeout(() => Taro.navigateBack().catch(() => undefined), 700)
     } catch (error) {
-      Taro.showToast({ title: error instanceof Error ? error.message : t('login.qrFailed'), icon: 'none' })
+      Taro.showToast({
+        title: error instanceof Error ? error.message : t('login.qrFailed'),
+        icon: 'none',
+      })
     } finally {
       setLoading(false)
     }

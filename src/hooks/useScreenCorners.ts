@@ -17,10 +17,13 @@ export function useScreenCorners(): ScreenCorners {
 
   useEffect(() => {
     try {
-      const capsule = Taro.getMenuButtonBoundingClientRect()
+      const capsule =
+        process.env.TARO_ENV === 'weapp' ? Taro.getMenuButtonBoundingClientRect() : null
       const sysInfo = Taro.getWindowInfo()
-      const topRadius = Math.max(0, capsule.top - (sysInfo.statusBarHeight ?? 0))
-      setCorners(prev => ({ ...prev, topLeft: topRadius }))
+      if (capsule) {
+        const topRadius = Math.max(0, capsule.top - (sysInfo.statusBarHeight ?? 0))
+        setCorners(prev => ({ ...prev, topLeft: topRadius }))
+      }
     } catch {
       /* 兜底值 */
     }

@@ -1,3 +1,4 @@
+import { t } from '@/i18n'
 import Taro from '@tarojs/taro'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { blogApi, type Article, type Category, type Tag } from '@/api/blog'
@@ -81,7 +82,7 @@ export function useBlogController(
       setPage(targetPage)
     } catch (error) {
       if (requestId === requestSequence.current) {
-        showToast(error instanceof Error ? error.message : '文章列表加载失败')
+        showToast(error instanceof Error ? error.message : t('ui.unableToLoadArticles'))
       }
     } finally {
       if (requestId === requestSequence.current) {
@@ -135,7 +136,7 @@ export function useBlogController(
         setPage(pageCount)
       } catch (error) {
         if (requestId === requestSequence.current) {
-          showToast(error instanceof Error ? error.message : '文章列表加载失败')
+          showToast(error instanceof Error ? error.message : t('ui.unableToLoadArticles'))
         }
       } finally {
         if (requestId === requestSequence.current) {

@@ -1,7 +1,7 @@
 .profile-page {
   padding-right: var(--space-6);
   padding-left: var(--space-6);
-  background: var(--color-surface);
+  background: var(--color-surface-muted);
 }
 
 .profile-nav-title {
@@ -31,6 +31,8 @@
   flex: 0 0 72px;
   background: var(--color-accent);
   color: var(--color-surface);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
 }
 
 .profile-identity {
@@ -77,9 +79,9 @@
 .profile-stats-card {
   display: flex;
   min-height: 112px;
-  border-top: 1px solid var(--color-divider);
-  border-bottom: 1px solid var(--color-divider);
-  background: transparent;
+  border: 1px solid var(--color-divider);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
 }
 
 .profile-stat {
@@ -127,12 +129,61 @@
 }
 
 .profile-menu-group {
-  margin-top: var(--space-5);
-  background: transparent;
+  margin-top: var(--space-2);
+  border: 1px solid var(--color-divider);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--color-surface);
 }
 
 .profile-menu-group--secondary {
+  margin-top: var(--space-5);
+  margin-bottom: var(--space-6);
+}
+
+.profile-section-title {
+  display: block;
+  margin-top: var(--space-6);
+  color: var(--color-ink-muted);
+  font-size: var(--text-caption);
+  font-weight: 600;
+}
+
+.profile-membership {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
   margin-top: var(--space-4);
+  padding: var(--space-4);
+  border: 1px solid var(--color-divider);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+
+.profile-membership-icon {
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--color-accent-soft);
+}
+
+.profile-membership-copy {
+  flex: 1;
+  min-width: 0;
+}
+.profile-membership-title {
+  display: block;
+  font-size: var(--text-title);
+  font-weight: 600;
+}
+.profile-membership-description {
+  display: block;
+  margin-top: var(--space-1);
+  font-size: var(--text-caption);
+  color: var(--color-ink-muted);
+}
+.profile-membership > .icon {
+  width: 18px;
+  height: 18px;
 }
 
 .profile-menu-row {

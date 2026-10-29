@@ -1,3 +1,4 @@
+import { t, useLocale } from '@/i18n'
 import { Text, View } from '@tarojs/components'
 import Taro, { useReachBottom, useRouter } from '@tarojs/taro'
 import { useCallback, useEffect, useState } from 'react'
@@ -14,6 +15,7 @@ function showToast(title: string) {
 type ActionKey = 'pause' | 'resume' | 'trigger' | 'cancel' | 'delete'
 
 export default function PlanDetail() {
+  useLocale()
   const { params } = useRouter()
   const planId = Number(params.id)
 
@@ -36,7 +38,7 @@ export default function PlanDetail() {
       setRuns(runsData.records)
       setRunsTotal(runsData.total)
     } catch (e) {
-      showToast(e instanceof Error ? e.message : '计划加载失败')
+      showToast(e instanceof Error ? e.message : t('ui.unableToLoadPlan'))
     } finally {
       setLoading(false)
     }
@@ -68,43 +70,43 @@ export default function PlanDetail() {
       switch (action) {
         case 'pause':
           await planApi.updateStatus(plan.id, 'PAUSED')
-          showToast('已暂停')
+          showToast(t('ui.paused'))
           break
         case 'resume':
           await planApi.updateStatus(plan.id, 'RESUME')
-          showToast('已恢复')
+          showToast(t('ui.resumed'))
           break
         case 'cancel': {
           const confirmed = await Taro.showModal({
-            title: '取消计划',
-            content: '取消后将不再执行该计划，确定取消吗？',
+            title: t('ui.cancelPlan'),
+            content: t('ui.thisPlanWillStopRunningCancelIt'),
             confirmColor: '#d14343',
           })
           if (!confirmed.confirm) return
           await planApi.updateStatus(plan.id, 'CANCELLED')
-          showToast('已取消')
+          showToast(t('ui.cancelled'))
           break
         }
         case 'delete': {
           const confirmed = await Taro.showModal({
-            title: '删除计划',
-            content: '删除后不可恢复，确定删除吗？',
+            title: t('ui.deletePlan'),
+            content: t('ui.thisCannotBeUndoneDeleteIt'),
             confirmColor: '#d14343',
           })
           if (!confirmed.confirm) return
           await planApi.delete(plan.id)
-          showToast('已删除')
+          showToast(t('ui.deleted'))
           Taro.navigateBack()
           return
         }
         case 'trigger':
           await planApi.trigger(plan.id)
-          showToast('已触发执行')
+          showToast(t('ui.runRequested'))
           break
       }
       load()
     } catch (e) {
-      showToast(e instanceof Error ? e.message : '操作失败')
+      showToast(e instanceof Error ? e.message : t('ui.operationFailed'))
     } finally {
       setBusy(false)
     }
@@ -112,21 +114,25 @@ export default function PlanDetail() {
 
   const showRunDetail = (run: PlanRun) => {
     const lines = [
-      `状态：${run.status}`,
-      `触发方式：${run.triggerType === 'MANUAL' ? '手动' : '定时'}`,
-      run.scheduledAt ? `计划时间：${formatInstant(run.scheduledAt)}` : '',
-      run.startedAt ? `开始：${formatInstant(run.startedAt)}` : '',
-      run.finishedAt ? `完成：${formatInstant(run.finishedAt)}` : '',
+      t('preferences.runStatus', { value: run.status }),
+      t('preferences.runTrigger', {
+        value: run.triggerType === 'MANUAL' ? t('ui.manual') : t('ui.scheduled'),
+      }),
+      run.scheduledAt
+        ? t('preferences.runScheduled', { value: formatInstant(run.scheduledAt) })
+        : '',
+      run.startedAt ? t('preferences.runStarted', { value: formatInstant(run.startedAt) }) : '',
+      run.finishedAt ? t('preferences.runFinished', { value: formatInstant(run.finishedAt) }) : '',
       `CSDN：${run.csdnStatus}${run.csdnUrl ? `（${run.csdnUrl}）` : ''}`,
-      `掘金：${run.juejinStatus}${run.juejinUrl ? `（${run.juejinUrl}）` : ''}`,
-      run.reviewReason ? `审核说明：${run.reviewReason}` : '',
-      run.errorMessage ? `错误：${run.errorMessage}` : '',
+      `${t('ui.juejin')}: ${run.juejinStatus}${run.juejinUrl ? `（${run.juejinUrl}）` : ''}`,
+      run.reviewReason ? t('preferences.runReview', { value: run.reviewReason }) : '',
+      run.errorMessage ? t('preferences.runError', { value: run.errorMessage }) : '',
     ].filter(Boolean)
     Taro.showModal({
-      title: `执行记录 #${run.id}`,
+      title: t('preferences.runTitle', { id: run.id }),
       content: lines.join('\n'),
       showCancel: false,
-      confirmText: '知道了',
+      confirmText: t('ui.gotIt'),
     })
   }
 
@@ -137,7 +143,7 @@ export default function PlanDetail() {
   }
 
   const copyExternalLink = (url: string) => {
-    Taro.setClipboardData({ data: url }).then(() => showToast('链接已复制'))
+    Taro.setClipboardData({ data: url }).then(() => showToast(t('ui.linkCopied')))
   }
 
   const showPlanActions = async () => {
@@ -145,25 +151,25 @@ export default function PlanDetail() {
     const actions: Array<{ label: string; run: () => unknown | Promise<unknown> }> = []
     if (plan.status !== 'RUNNING' && plan.status !== 'FINISHED') {
       actions.push({
-        label: '编辑计划',
+        label: t('ui.editPlan'),
         run: () => Taro.navigateTo({ url: `/pages/plan-create/index?id=${plan.id}` }),
       })
     }
     if (plan.status === 'ACTIVE') {
       actions.push(
-        { label: '暂停', run: () => runAction('pause') },
-        { label: '立即执行', run: () => runAction('trigger') },
-        { label: '取消', run: () => runAction('cancel') },
+        { label: t('ui.pause'), run: () => runAction('pause') },
+        { label: t('ui.runNow'), run: () => runAction('trigger') },
+        { label: t('ui.cancel'), run: () => runAction('cancel') },
       )
     } else if (plan.status === 'PAUSED') {
       actions.push(
-        { label: '恢复', run: () => runAction('resume') },
-        { label: '立即执行', run: () => runAction('trigger') },
-        { label: '取消', run: () => runAction('cancel') },
+        { label: t('ui.resume'), run: () => runAction('resume') },
+        { label: t('ui.runNow'), run: () => runAction('trigger') },
+        { label: t('ui.cancel'), run: () => runAction('cancel') },
       )
     }
     if (plan.status !== 'RUNNING') {
-      actions.push({ label: '删除', run: () => runAction('delete') })
+      actions.push({ label: t('ui.delete'), run: () => runAction('delete') })
     }
     if (actions.length === 0) return
     try {
@@ -177,8 +183,8 @@ export default function PlanDetail() {
   if (loading) {
     return (
       <View className="detail-page">
-        <NavBar title="计划详情" showBack />
-        <Text className="data-state">正在加载计划...</Text>
+        <NavBar title={t('ui.planDetails')} showBack />
+        <Text className="data-state">{t('ui.loadingPlans')}</Text>
       </View>
     )
   }
@@ -186,9 +192,9 @@ export default function PlanDetail() {
   if (!plan) {
     return (
       <View className="detail-page">
-        <NavBar title="计划详情" showBack />
+        <NavBar title={t('ui.planDetails')} showBack />
         <View className="empty-state">
-          <Text className="empty-title">计划不存在</Text>
+          <Text className="empty-title">{t('ui.planNotFound')}</Text>
         </View>
       </View>
     )
@@ -196,7 +202,7 @@ export default function PlanDetail() {
 
   return (
     <View className="detail-page">
-      <NavBar title="计划详情" showBack />
+      <NavBar title={t('ui.planDetails')} showBack />
 
       <View className="plan-info-card">
         <View className="plan-info-heading">
@@ -204,102 +210,119 @@ export default function PlanDetail() {
           <View className="plan-info-actions">
             <PlanStatusBadge status={plan.status} />
             <Text className="plan-manage" onClick={showPlanActions}>
-              管理
+              {t('ui.manage')}
             </Text>
           </View>
         </View>
         <View className="plan-info-tags">
-          {plan.runOnce ? <Text className="badge badge-purple">一次性</Text> : null}
-          {plan.syncCsdn ? <Text className="badge badge-blue">同步 CSDN</Text> : null}
-          {plan.syncJuejin ? <Text className="badge badge-blue">同步掘金</Text> : null}
+          {plan.runOnce ? <Text className="badge badge-purple">{t('ui.oneTime')}</Text> : null}
+          {plan.syncCsdn ? (
+            <Text className="badge badge-blue">{t('ui.crossPostToCsdnLabel')}</Text>
+          ) : null}
+          {plan.syncJuejin ? (
+            <Text className="badge badge-blue">{t('ui.crossPostToJuejinLabel')}</Text>
+          ) : null}
         </View>
         <View className="plan-info-rows">
           <View className="plan-info-row">
-            <Text className="plan-info-label">触发时间</Text>
+            <Text className="plan-info-label">{t('ui.scheduledTime')}</Text>
             <Text className="plan-info-value">
               {(plan.triggerTimes?.length ? plan.triggerTimes : [plan.triggerTime]).join(' / ')}（
               {plan.timezone}）
             </Text>
           </View>
           <View className="plan-info-row">
-            <Text className="plan-info-label">下次运行</Text>
+            <Text className="plan-info-label">{t('ui.nextRun')}</Text>
             <Text className="plan-info-value">{formatInstant(plan.nextRunAt)}</Text>
           </View>
           <View className="plan-info-row">
-            <Text className="plan-info-label">主题队列</Text>
+            <Text className="plan-info-label">{t('ui.topicQueue')}</Text>
             <Text className="plan-info-value">
-              {plan.topics?.length ? `${plan.topics.length} 个主题` : '由主题自动生成'}
+              {plan.topics?.length
+                ? t('preferences.topicCount', { count: plan.topics.length })
+                : t('ui.generatedFromTheTopic')}
             </Text>
           </View>
           {plan.audience ? (
             <View className="plan-info-row">
-              <Text className="plan-info-label">目标读者</Text>
+              <Text className="plan-info-label">{t('ui.audience')}</Text>
               <Text className="plan-info-value">{plan.audience}</Text>
             </View>
           ) : null}
           {plan.tone ? (
             <View className="plan-info-row">
-              <Text className="plan-info-label">写作语气</Text>
+              <Text className="plan-info-label">{t('ui.tone')}</Text>
               <Text className="plan-info-value">{plan.tone}</Text>
             </View>
           ) : null}
           <View className="plan-info-row">
-            <Text className="plan-info-label">创建时间</Text>
+            <Text className="plan-info-label">{t('ui.created')}</Text>
             <Text className="plan-info-value">{formatDateTime(plan.createdAt)}</Text>
           </View>
         </View>
       </View>
 
       <View className="section-title">
-        <Text>执行记录（{runsTotal}）</Text>
+        <Text>{t('preferences.scheduledCount', { count: runsTotal })}</Text>
       </View>
-      {runsLoading && runs.length === 0 ? <Text className="data-state">加载中...</Text> : null}
+      {runsLoading && runs.length === 0 ? (
+        <Text className="data-state">{t('ui.loading')}</Text>
+      ) : null}
       {!runsLoading && runs.length === 0 ? (
-        <Text className="data-state">暂无执行记录，触发后可见</Text>
+        <Text className="data-state">{t('ui.noRunsYetStartAPlanTo')}</Text>
       ) : null}
       {runs.map(run => (
         <View className="run-card" key={run.id}>
           <View className="run-head">
             <Text className="run-title">
-              #{run.id} {run.triggerType === 'MANUAL' ? '手动触发' : '定时触发'}
+              #{run.id} {run.triggerType === 'MANUAL' ? t('ui.manualRun') : t('ui.scheduledRun')}
             </Text>
             <RunStatusBadge status={run.status} />
           </View>
           <View className="run-info">
-            <Text>计划时间：{formatInstant(run.scheduledAt)}</Text>
-            <Text>完成：{formatInstant(run.finishedAt)}</Text>
             <Text>
-              CSDN：{run.csdnStatus} ｜ 掘金：{run.juejinStatus}
+              {t('ui.scheduledLabel')}
+              {formatInstant(run.scheduledAt)}
+            </Text>
+            <Text>
+              {t('ui.completed')}
+              {formatInstant(run.finishedAt)}
+            </Text>
+            <Text>
+              CSDN：{run.csdnStatus} {t('ui.juejinLabel')}
+              {run.juejinStatus}
             </Text>
           </View>
           <View className="run-links">
             {run.localPostId ? (
               <Text className="link-chip" onClick={() => gotoArticle(run)}>
-                查看文章
+                {t('ui.viewArticle')}
               </Text>
             ) : null}
             {run.reviewReason ? (
               <Text className="link-chip" onClick={() => showRunDetail(run)}>
-                审核说明
+                {t('ui.reviewNotes')}
               </Text>
             ) : null}
             {run.csdnUrl ? (
               <Text className="link-chip" onClick={() => copyExternalLink(run.csdnUrl!)}>
-                复制 CSDN 链接
+                {t('ui.copyCsdnLink')}
               </Text>
             ) : null}
             {run.juejinUrl ? (
               <Text className="link-chip" onClick={() => copyExternalLink(run.juejinUrl!)}>
-                复制掘金链接
+                {t('ui.copyJuejinLink')}
               </Text>
             ) : null}
             <Text className="link-chip" onClick={() => showRunDetail(run)}>
-              详情
+              {t('ui.details')}
             </Text>
           </View>
         </View>
       ))}
-      {runsLoading && runs.length > 0 ? <Text className="data-state">加载中...</Text> : null}
+      {runsLoading && runs.length > 0 ? (
+        <Text className="data-state">{t('ui.loading')}</Text>
+      ) : null}
     </View>
   )
 }

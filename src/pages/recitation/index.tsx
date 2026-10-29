@@ -6,10 +6,11 @@ import { NavBar } from '@/components/NavBar'
 import { Button } from '@/components/ui/Button'
 import { PageState } from '@/components/ui/PageState'
 import { SectionHeader } from '@/components/ui/SectionHeader'
-import { t } from '@/i18n'
+import { t, useLocale } from '@/i18n'
 import './index.scss'
 
 export default function RecitationPage() {
+  useLocale()
   const [materials, setMaterials] = useState<RecitationMaterial[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)

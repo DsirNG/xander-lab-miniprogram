@@ -1,4 +1,5 @@
 import {
+  Button,
   Image,
   ScrollView,
   Text,
@@ -20,10 +21,12 @@ import { API_ORIGIN, tokenStorage } from '@/api/http'
 import { Markdown } from '@/components/Markdown'
 import { NavBar } from '@/components/NavBar'
 import { Icon } from '@/components/Icon'
+import { useNavbarLayout } from '@/hooks/useNavbarLayout'
+import { exitChat } from '@/store/tabBar'
 import { usePanelActive } from '@/hooks/usePanelActive'
 import { ensureLogin, useUserStore } from '@/store/user'
 import { truncate } from '@/utils/markdown'
-import { t } from '@/i18n'
+import { t, useLocale } from '@/i18n'
 import { ChatComposer } from '@/pages/chat/components/ChatComposer'
 import { ChatDrawer } from '@/pages/chat/components/ChatDrawer'
 import {
@@ -44,11 +47,21 @@ const ACTIVE_KEY = 'chat_active_id'
  */
 const STREAM_FLUSH_INTERVAL = 100
 
-const QUICK_PROMPTS = ['写一篇技术博客', '搜索并整理资料', '我有一个问题']
+const QUICK_PROMPTS = () => [
+  t('ui.writeATechnicalBlogPost'),
+  t('ui.researchAndOrganizeInformation'),
+  t('ui.iHaveAQuestion'),
+]
 const CHAT_COPY = {
-  history: '最近对话',
-  inputPlaceholder: '有什么问题，随时问我...',
-  stop: '停止',
+  get history() {
+    return t('ui.recentConversations')
+  },
+  get inputPlaceholder() {
+    return t('ui.askMeAnything')
+  },
+  get stop() {
+    return t('ui.stop')
+  },
 } as const
 
 type MessageTurn = {
@@ -136,6 +149,8 @@ type ChatContentProps = {
 }
 
 export function ChatContent({ panelActive, refreshVersion = 0 }: ChatContentProps) {
+  useLocale()
+  const { navBarHeight } = useNavbarLayout()
   const user = useUserStore(state => state.user)
   const refreshUser = useUserStore(state => state.refresh)
 
@@ -163,7 +178,10 @@ export function ChatContent({ panelActive, refreshVersion = 0 }: ChatContentProp
     } catch {
       /* 无兜底 */
     }
-    return { '--chat-shell-top-radius': `${topRadius}px` } as any
+    return {
+      '--chat-shell-top-radius': `${topRadius || 24}px`,
+      '--chat-shell-bottom-radius': `${Math.min(topRadius || 24, 34)}px`,
+    } as any
   }, [])
 
   useEffect(() => {
@@ -195,6 +213,7 @@ export function ChatContent({ panelActive, refreshVersion = 0 }: ChatContentProp
 
   const onShellTouchStart: CommonEventFunction = useCallback(e => {
     const touch = (e as ITouchEvent).touches[0]
+    if (!touch) return
     touchStartRef.current = { x: touch.clientX, y: touch.clientY }
   }, [])
 
@@ -211,7 +230,8 @@ export function ChatContent({ panelActive, refreshVersion = 0 }: ChatContentProp
       if (dx > 0) {
         openDrawer()
       } else {
-        closeDrawer()
+        if (drawerPhaseRef.current === 'closed') exitChat()
+        else closeDrawer()
       }
     },
     [openDrawer, closeDrawer],
@@ -303,15 +323,14 @@ export function ChatContent({ panelActive, refreshVersion = 0 }: ChatContentProp
       closeStream()
       clearStreamState()
       if (snapshot.conversation.status === 'failed') {
-        showToast(snapshot.conversation.errorMessage || '生成失败，请重试')
+        showToast(snapshot.conversation.errorMessage || t('ui.generationFailedTryAgain'))
       }
       void loadConversations()
-      void refreshUser().catch(() => undefined)
     } catch (error) {
       if (activeIdRef.current !== id || streamRunRef.current !== runVersion) return
       closeStream()
       setRunning(false)
-      showToast(error instanceof Error ? error.message : '对话同步失败')
+      showToast(error instanceof Error ? error.message : t('ui.unableToSyncConversation'))
     }
   }
 
@@ -338,13 +357,13 @@ export function ChatContent({ panelActive, refreshVersion = 0 }: ChatContentProp
           setStreamThought(String(ev.data ?? ''))
         } else if (ev.event === 'tool_start') {
           const data = ev.data as ToolEventData | undefined
-          const name = String(data?.tool ?? '内部工具')
+          const name = String(data?.tool ?? t('ui.internalTool'))
           setStreamTool({ name, message: '' })
           if (isImageTool(name)) setStreamImageResult(null)
         } else if (ev.event === 'tool_progress') {
           const data = ev.data as ToolEventData | undefined
           setStreamTool(previous => ({
-            name: String(data?.tool ?? previous?.name ?? '内部工具'),
+            name: String(data?.tool ?? previous?.name ?? t('ui.internalTool')),
             message: String(data?.message ?? previous?.message ?? ''),
           }))
         } else if (ev.event === 'tool_end') {
@@ -423,7 +442,7 @@ export function ChatContent({ panelActive, refreshVersion = 0 }: ChatContentProp
       const list = await agentApi.listConversations()
       setConversations(list)
     } catch (e) {
-      showToast(e instanceof Error ? e.message : '会话列表加载失败')
+      showToast(e instanceof Error ? e.message : t('ui.unableToLoadConversations'))
     }
   }, [])
 
@@ -491,7 +510,7 @@ export function ChatContent({ panelActive, refreshVersion = 0 }: ChatContentProp
         if (snapshot.conversation.runVersion) openStream(id, snapshot.conversation.runVersion)
       }
     } catch (e) {
-      showToast(e instanceof Error ? e.message : '会话加载失败')
+      showToast(e instanceof Error ? e.message : t('ui.unableToLoadConversation'))
     }
   }
 
@@ -614,13 +633,13 @@ export function ChatContent({ panelActive, refreshVersion = 0 }: ChatContentProp
           }
         } else {
           setRunning(false)
-          showToast(message || '发送失败')
+          showToast(message || t('ui.messageCouldNotBeSent'))
         }
       }
     } catch (e) {
       setCreating(false)
       setRunning(false)
-      showToast(e instanceof Error ? e.message : '发送失败，请重试')
+      showToast(e instanceof Error ? e.message : t('ui.messageCouldNotBeSentTryAgain'))
     }
   }
 
@@ -628,9 +647,9 @@ export function ChatContent({ panelActive, refreshVersion = 0 }: ChatContentProp
     if (!active) return
     try {
       await agentApi.cancel(active.conversation.id)
-      showToast('已请求停止')
+      showToast(t('ui.stopRequested'))
     } catch (e) {
-      showToast(e instanceof Error ? e.message : '取消失败')
+      showToast(e instanceof Error ? e.message : t('ui.unableToCancel'))
     }
   }
 
@@ -647,11 +666,47 @@ export function ChatContent({ panelActive, refreshVersion = 0 }: ChatContentProp
         style={shellStyle}
         onTouchStart={onShellTouchStart}
         onTouchEnd={onShellTouchEnd}
+        onTouchCancel={() => {
+          touchStartRef.current = null
+        }}
       >
+        <View className="chat-page-actions" style={{ top: navBarHeight }}>
+          <Button
+            className="chat-page-action"
+            ariaLabel={t('ui.leaveConversation')}
+            onClick={exitChat}
+          >
+            <Icon name="logout" />
+          </Button>
+          <Button
+            className="chat-page-action"
+            ariaLabel={t('ui.shareConversation')}
+            disabled={!active}
+            onClick={async () => {
+              if (!active) return
+              const result = await Taro.showActionSheet({
+                itemList: [t('ui.copyConversationToShare')],
+              }).catch(() => null)
+              if (!result) return
+              const transcript = active.messages
+                .filter(message => message.role === 'user' || message.kind === 'answer')
+                .map(
+                  message =>
+                    `${message.role === 'user' ? t('ui.me') : t('ui.assistant')}：${message.content}`,
+                )
+                .join('\n\n')
+              await Taro.setClipboardData({
+                data: `${active.conversation.title}\n\n${transcript}`,
+              }).catch(() => showToast(t('ui.copyFailedTryAgain')))
+            }}
+          >
+            <Icon name="send" />
+          </Button>
+        </View>
         {active ? (
           <>
             <NavBar
-              title={active.conversation.title || '智能体会话'}
+              title={active.conversation.title || t('ui.agentConversation')}
               left={
                 <View
                   className="chat-history-trigger chat-history-trigger-left"
@@ -692,13 +747,16 @@ export function ChatContent({ panelActive, refreshVersion = 0 }: ChatContentProp
                       ) : streamTool ? (
                         <View className="msg-tool">
                           <View className="msg-tool-dot" />
-                          <Text>正在使用工具：{streamTool.name}</Text>
+                          <Text>
+                            {t('ui.usingTool')}
+                            {streamTool.name}
+                          </Text>
                         </View>
                       ) : null}
                       {streamImageResult ? <GeneratedImage result={streamImageResult} /> : null}
                       {streamThought ? (
                         <View className="msg-thought">
-                          <Text className="msg-thought-title">思考过程</Text>
+                          <Text className="msg-thought-title">{t('ui.thinking')}</Text>
                           <Text>{truncate(streamThought, 120)}</Text>
                         </View>
                       ) : null}
@@ -763,9 +821,9 @@ export function ChatContent({ panelActive, refreshVersion = 0 }: ChatContentProp
               }
             />
             <View className="chat-home-empty">
-              <Text className="chat-home-title">我们先从哪里开始呢？</Text>
+              <Text className="chat-home-title">{t('ui.whereShallWeStart')}</Text>
               <View className="chat-home-quick-list">
-                {QUICK_PROMPTS.map(prompt => (
+                {QUICK_PROMPTS().map(prompt => (
                   <View
                     key={prompt}
                     className="chat-home-quick"
@@ -778,25 +836,24 @@ export function ChatContent({ panelActive, refreshVersion = 0 }: ChatContentProp
                   </View>
                 ))}
               </View>
-              <ChatComposer
-                home
-                value={input}
-                placeholder={CHAT_COPY.inputPlaceholder}
-                sendLabel={CHAT_COPY.inputPlaceholder}
-                stopLabel={CHAT_COPY.stop}
-                running={running}
-                creating={creating}
-                attachments={attachments}
-                uploading={uploadingAttachments}
-                onChange={setInput}
-                onAddAttachment={handleAddAttachment}
-                onRemoveAttachment={url =>
-                  setAttachments(current => current.filter(item => item.url !== url))
-                }
-                onSubmit={() => handleSend()}
-                onStop={handleCancel}
-              />
             </View>
+            <ChatComposer
+              value={input}
+              placeholder={CHAT_COPY.inputPlaceholder}
+              sendLabel={CHAT_COPY.inputPlaceholder}
+              stopLabel={CHAT_COPY.stop}
+              running={running}
+              creating={creating}
+              attachments={attachments}
+              uploading={uploadingAttachments}
+              onChange={setInput}
+              onAddAttachment={handleAddAttachment}
+              onRemoveAttachment={url =>
+                setAttachments(current => current.filter(item => item.url !== url))
+              }
+              onSubmit={() => handleSend()}
+              onStop={handleCancel}
+            />
           </>
         )}
         <View
@@ -845,6 +902,7 @@ const MessagePart = memo(function MessagePart({
   /** 收 id 而不是闭包：父层因此能用同一个 useCallback 实例，memo 才挡得住。 */
   onToggleThought: (messageId: number) => void
 }) {
+  useLocale()
   const toggle = useCallback(() => onToggleThought(message.id), [onToggleThought, message.id])
 
   if (message.role === 'user' && message.kind === 'message') {
@@ -879,10 +937,10 @@ const MessagePart = memo(function MessagePart({
         className="msg-thought"
         role="button"
         ariaRole="button"
-        ariaLabel="思考过程"
+        ariaLabel={t('ui.thinking')}
         onClick={toggle}
       >
-        <Text className="msg-thought-title">思考过程</Text>
+        <Text className="msg-thought-title">{t('ui.thinking')}</Text>
         <Text>{open ? message.content : truncate(message.content, 120)}</Text>
       </View>
     )
@@ -892,7 +950,10 @@ const MessagePart = memo(function MessagePart({
     return (
       <View className="msg-tool">
         <View className="msg-tool-dot" />
-        <Text>正在使用工具：{message.toolName || '内部工具'}</Text>
+        <Text>
+          {t('ui.usingTool')}
+          {message.toolName || t('ui.internalTool')}
+        </Text>
       </View>
     )
   }
@@ -901,7 +962,7 @@ const MessagePart = memo(function MessagePart({
     if (result) return <GeneratedImage result={result} />
     return (
       <View className="msg-tool is-complete">
-        <Text>工具执行完成</Text>
+        <Text>{t('ui.toolCompleted')}</Text>
       </View>
     )
   }
@@ -910,12 +971,13 @@ const MessagePart = memo(function MessagePart({
   }
   return (
     <View className="msg-answer">
-      <Markdown content={message.content || '（空回复）'} />
+      <Markdown content={message.content || t('ui.emptyResponse')} />
     </View>
   )
 })
 
 function ImageGenerationPanel({ message }: { message?: string }) {
+  useLocale()
   return (
     <View className="msg-image-generating">
       <View className="msg-image-pattern" />
@@ -937,6 +999,7 @@ function ImageGenerationPanel({ message }: { message?: string }) {
 }
 
 function GeneratedImage({ result }: { result: GeneratedImageResult }) {
+  useLocale()
   return (
     <View
       className="msg-generated-image"

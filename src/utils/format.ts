@@ -1,19 +1,44 @@
+import { t } from '@/i18n'
 export const PLAN_STATUS_TEXT: Record<string, string> = {
-  ACTIVE: '待执行',
-  PAUSED: '已暂停',
-  RUNNING: '运行中',
-  CANCELLED: '已取消',
-  FINISHED: '已完成',
-  FAILED: '失败',
+  get ACTIVE() {
+    return t('ui.pending')
+  },
+  get PAUSED() {
+    return t('ui.paused')
+  },
+  get RUNNING() {
+    return t('ui.runningLabel')
+  },
+  get CANCELLED() {
+    return t('ui.cancelled')
+  },
+  get FINISHED() {
+    return t('ui.completedLabel')
+  },
+  get FAILED() {
+    return t('ui.failed')
+  },
 }
 
 export const RUN_STATUS_TEXT: Record<string, string> = {
-  GENERATING: '生成中',
-  REVIEWING: '审核中',
-  PUBLISHING: '发布中',
-  SUCCEEDED: '成功',
-  FAILED: '失败',
-  REVIEW_REJECTED: '审核拒绝',
+  get GENERATING() {
+    return t('ui.generating')
+  },
+  get REVIEWING() {
+    return t('ui.reviewing')
+  },
+  get PUBLISHING() {
+    return t('ui.publishing')
+  },
+  get SUCCEEDED() {
+    return t('ui.succeeded')
+  },
+  get FAILED() {
+    return t('ui.failed')
+  },
+  get REVIEW_REJECTED() {
+    return t('ui.reviewRejected')
+  },
 }
 
 export const PLAN_STATUS_CLASS: Record<string, string> = {
@@ -35,9 +60,15 @@ export const RUN_STATUS_CLASS: Record<string, string> = {
 }
 
 export const BLOG_STATUS_TEXT: Record<number, string> = {
-  0: '草稿',
-  1: '已发布',
-  [-1]: '回收站',
+  get 0() {
+    return t('ui.draft')
+  },
+  get 1() {
+    return t('ui.published')
+  },
+  get [-1]() {
+    return t('ui.trash')
+  },
 }
 
 /** 后端 UTC Instant（如 2026-08-17T02:00:00Z）转本地可读时间 */

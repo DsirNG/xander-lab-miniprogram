@@ -5,7 +5,7 @@ import { recitationApi, type RecitationAttempt, type RecitationDifference } from
 import { NavBar } from '@/components/NavBar'
 import { Button } from '@/components/ui/Button'
 import { PageState } from '@/components/ui/PageState'
-import { t } from '@/i18n'
+import { t, useLocale } from '@/i18n'
 import './index.scss'
 
 const TERMINAL_STATUSES = new Set(['SUCCEEDED', 'FAILED'])
@@ -65,6 +65,7 @@ function groupReportDifferences(
 }
 
 export default function RecitationReportPage() {
+  useLocale()
   const [attemptId, setAttemptId] = useState(0)
   const [attempt, setAttempt] = useState<RecitationAttempt | null>(null)
   const [loading, setLoading] = useState(true)

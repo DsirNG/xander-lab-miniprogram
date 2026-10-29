@@ -1,3 +1,4 @@
+import { t, useLocale } from '@/i18n'
 import {
   ScrollView,
   Text,
@@ -26,9 +27,27 @@ interface ChatDrawerProps {
 }
 
 const PRODUCT_MENUS = [
-  { name: '内容计划', icon: 'calendar', tab: 'calendar' },
-  { name: '浏览博客', icon: 'article', tab: 'article' },
-  { name: '个人中心', icon: 'user', tab: 'user' },
+  {
+    get name() {
+      return t('ui.publishingPlans')
+    },
+    icon: 'calendar',
+    tab: 'calendar',
+  },
+  {
+    get name() {
+      return t('ui.browseArticles')
+    },
+    icon: 'article',
+    tab: 'article',
+  },
+  {
+    get name() {
+      return t('ui.myProfile')
+    },
+    icon: 'user',
+    tab: 'user',
+  },
 ] as const
 
 export function ChatDrawer({
@@ -41,9 +60,10 @@ export function ChatDrawer({
   onNewChat,
   user,
 }: ChatDrawerProps) {
+  useLocale()
   const [keyword, setKeyword] = useState('')
   const [focused, setFocused] = useState(false)
-  const { statusBarHeight } = useNavbarLayout()
+  const { navBarHeight } = useNavbarLayout()
 
   // 抽屉内部左滑收起：与主面板一致的阈值与方向判定。
   const drawerTouchStartRef = useRef<{ x: number; y: number } | null>(null)
@@ -51,6 +71,7 @@ export function ChatDrawer({
 
   const onDrawerTouchStart: CommonEventFunction = useCallback(e => {
     const touch = (e as ITouchEvent).touches[0]
+    if (!touch) return
     drawerTouchStartRef.current = { x: touch.clientX, y: touch.clientY }
   }, [])
 
@@ -76,17 +97,17 @@ export function ChatDrawer({
   return (
     <View
       className={`chat-drawer-layer ${visible ? 'is-visible' : 'is-hidden'}`}
-      ariaLabel="最近对话"
+      ariaLabel={t('ui.recentConversations')}
     >
       <View
         className={`chat-drawer-content ${closing ? 'is-closing' : ''}`}
         role="dialog"
         ariaRole="dialog"
-        ariaLabel="最近对话"
+        ariaLabel={t('ui.recentConversations')}
         onTouchStart={onDrawerTouchStart}
         onTouchEnd={onDrawerTouchEnd}
       >
-        <View className="drawer-header" style={{ paddingTop: statusBarHeight + 16 }}>
+        <View className="drawer-header" style={{ paddingTop: navBarHeight + 12 }}>
           <View className="drawer-brand">
             <View className="drawer-logo">
               <Icon name="play" />
@@ -100,14 +121,14 @@ export function ChatDrawer({
             className="drawer-new-chat-btn"
             role="button"
             ariaRole="button"
-            ariaLabel="新建对话"
+            ariaLabel={t('ui.newConversation')}
             onClick={() => {
               onNewChat()
               onClose()
             }}
           >
             <Icon name="plus" />
-            <Text>新建对话</Text>
+            <Text>{t('ui.newConversation')}</Text>
           </View>
         </View>
 
@@ -121,11 +142,11 @@ export function ChatDrawer({
               onInput={e => setKeyword(e.detail.value)}
               onFocus={() => setFocused(true)}
               onBlur={() => setFocused(false)}
-              ariaLabel="搜索对话"
+              ariaLabel={t('ui.searchConversations')}
             />
             {!keyword && !focused ? (
               <View className="drawer-search-placeholder" onClick={() => setFocused(true)}>
-                搜索对话
+                {t('ui.searchConversations')}
               </View>
             ) : null}
           </View>
@@ -152,7 +173,7 @@ export function ChatDrawer({
           </View>
 
           <View className="drawer-recent-section">
-            <Text className="drawer-recent-title">最近对话</Text>
+            <Text className="drawer-recent-title">{t('ui.recentConversations')}</Text>
             <View className="drawer-recent-list">
               {filteredConversations.map(conversation => (
                 <View
@@ -160,7 +181,7 @@ export function ChatDrawer({
                   className={`drawer-chat-item ${activeId === conversation.id ? 'active' : ''}`}
                   role="button"
                   ariaRole="button"
-                  ariaLabel={conversation.title || '新对话'}
+                  ariaLabel={conversation.title || t('ui.newChat')}
                   onClick={() => {
                     onSelect(conversation.id)
                     onClose()
@@ -170,12 +191,12 @@ export function ChatDrawer({
                   <View className="chat-item-info">
                     <Text className="chat-item-title">{conversation.title}</Text>
                     <Text className="chat-item-desc">
-                      {conversation.status === 'running' ? '执行中...' : '新对话'}
+                      {conversation.status === 'running' ? t('ui.running') : t('ui.newChat')}
                     </Text>
                   </View>
                   <View className="chat-item-meta">
                     <Text className="chat-item-time">
-                      {formatDateTime(conversation.updatedAt).split(' ')[1] || '昨天'}
+                      {formatDateTime(conversation.updatedAt).split(' ')[1] || t('ui.yesterday')}
                     </Text>
                   </View>
                 </View>
@@ -198,7 +219,7 @@ export function ChatDrawer({
             <View className="drawer-user-avatar">
               <Icon name="user" />
             </View>
-            <Text className="drawer-user-name">{user.nickname || '用户'}</Text>
+            <Text className="drawer-user-name">{user.nickname || t('ui.user')}</Text>
             <Icon name="right" className="drawer-user-arrow" />
           </View>
         ) : null}

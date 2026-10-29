@@ -1,3 +1,4 @@
+import { t, useLocale } from '@/i18n'
 import { Text, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import type { Article } from '@/api/blog'
@@ -9,13 +10,14 @@ type ArticleCardProps = {
 }
 
 export function ArticleCard({ article, featured = false }: ArticleCardProps) {
+  useLocale()
   return (
     <View
       className={`article-card ${featured ? 'featured' : ''}`}
       onClick={() => Taro.navigateTo({ url: `/pages/blog-detail/index?id=${article.id}` })}
     >
       <View className="article-info">
-        {featured ? <Text className="featured-label">精选</Text> : null}
+        {featured ? <Text className="featured-label">{t('ui.featured')}</Text> : null}
         <Text className="article-title">{article.title}</Text>
         <Text className="article-excerpt">{article.summary}</Text>
         {article.tags.length > 0 ? (

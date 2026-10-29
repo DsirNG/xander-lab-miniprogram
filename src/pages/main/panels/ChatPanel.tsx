@@ -30,7 +30,7 @@ export function ChatPanel({ active, refreshVersion = 0 }: ChatPanelProps) {
   }, [active])
 
   return (
-    <View className={`main-panel main-panel--chat ${active ? 'is-active' : ''}`} hidden={!active}>
+    <View className="main-panel main-panel--chat is-active">
       <ChatContent panelActive={active} refreshVersion={refreshVersion} />
     </View>
   )

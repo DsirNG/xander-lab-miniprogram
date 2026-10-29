@@ -1,8 +1,33 @@
+import { t } from '@/i18n'
 export const TAB_ITEMS = [
-  { key: 'chat', icon: 'chat', label: '对话' },
-  { key: 'calendar', icon: 'calendar', label: '计划' },
-  { key: 'article', icon: 'article', label: '博客' },
-  { key: 'user', icon: 'user', label: '我的' },
+  {
+    key: 'chat',
+    icon: 'chat',
+    get label() {
+      return t('ui.chat')
+    },
+  },
+  {
+    key: 'calendar',
+    icon: 'calendar',
+    get label() {
+      return t('ui.plans')
+    },
+  },
+  {
+    key: 'article',
+    icon: 'article',
+    get label() {
+      return t('ui.blogs')
+    },
+  },
+  {
+    key: 'user',
+    icon: 'user',
+    get label() {
+      return t('ui.meLabel')
+    },
+  },
 ] as const
 
 export type TabKey = (typeof TAB_ITEMS)[number]['key']

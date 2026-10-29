@@ -1,6 +1,8 @@
+import { t } from '@/i18n'
 import Taro from '@tarojs/taro'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { planApi, type Plan } from '@/api/plans'
+import { authApi } from '@/api/auth'
 import { usePanelActive } from '@/hooks/usePanelActive'
 import { useUserStore } from '@/store/user'
 import type { PlanActionKey } from '@/components/PlanCard'
@@ -15,7 +17,7 @@ function showToast(title: string) {
 export function usePlansController(active: boolean, pageShowCount = 0, refreshVersion = 0) {
   const user = useUserStore(state => state.user)
   const userLoaded = useUserStore(state => state.loaded)
-  const refreshUser = useUserStore(state => state.refresh)
+  const hasSession = authApi.isLoggedIn()
 
   const [plans, setPlans] = useState<Plan[]>([])
   const [page, setPage] = useState(1)
@@ -28,7 +30,7 @@ export function usePlansController(active: boolean, pageShowCount = 0, refreshVe
   const handledRefreshVersionRef = useRef(refreshVersion)
 
   const load = useCallback(async (targetPage: number, append: boolean) => {
-    if (!useUserStore.getState().user) {
+    if (!authApi.isLoggedIn()) {
       setLoadedOnce(true)
       return
     }
@@ -60,7 +62,7 @@ export function usePlansController(active: boolean, pageShowCount = 0, refreshVe
       setPage(targetPage)
     } catch (error) {
       if (requestId === requestSequence.current) {
-        showToast(error instanceof Error ? error.message : '计划列表加载失败')
+        showToast(error instanceof Error ? error.message : t('ui.unableToLoadPlans'))
       }
     } finally {
       if (requestId === requestSequence.current) {
@@ -74,9 +76,12 @@ export function usePlansController(active: boolean, pageShowCount = 0, refreshVe
     async (source: RefreshSource = 'panel-active') => {
       console.log('[PlansController] REFRESH', { source })
       try {
-        if (!useUserStore.getState().loaded) await refreshUser()
-        if (!useUserStore.getState().user) {
+        if (!authApi.isLoggedIn()) {
           requestSequence.current += 1
+          setPlans([])
+          setTotal(0)
+          setPage(1)
+          setLoading(false)
           setLoadedOnce(true)
           return
         }
@@ -120,12 +125,12 @@ export function usePlansController(active: boolean, pageShowCount = 0, refreshVe
         }
       } catch (error) {
         // Keep the page usable even when restoring the session fails.
-        showToast(error instanceof Error ? error.message : '计划列表加载失败')
+        showToast(error instanceof Error ? error.message : t('ui.unableToLoadPlans'))
         setLoadedOnce(true)
         setLoading(false)
       }
     },
-    [page, refreshUser],
+    [page],
   )
 
   usePanelActive(active, { onShow: refresh })
@@ -158,42 +163,42 @@ export function usePlansController(active: boolean, pageShowCount = 0, refreshVe
         switch (action) {
           case 'pause':
             await planApi.updateStatus(id, 'PAUSED')
-            showToast('已暂停')
+            showToast(t('ui.paused'))
             break
           case 'resume':
             await planApi.updateStatus(id, 'RESUME')
-            showToast('已恢复')
+            showToast(t('ui.resumed'))
             break
           case 'cancel': {
             const confirmed = await Taro.showModal({
-              title: '取消计划',
-              content: '取消后将不再执行该计划，确定取消吗？',
+              title: t('ui.cancelPlan'),
+              content: t('ui.thisPlanWillStopRunningCancelIt'),
               confirmColor: '#d14343',
             })
             if (!confirmed.confirm) return
             await planApi.updateStatus(id, 'CANCELLED')
-            showToast('已取消')
+            showToast(t('ui.cancelled'))
             break
           }
           case 'delete': {
             const confirmed = await Taro.showModal({
-              title: '删除计划',
-              content: '删除后不可恢复，确定删除吗？',
+              title: t('ui.deletePlan'),
+              content: t('ui.thisCannotBeUndoneDeleteIt'),
               confirmColor: '#d14343',
             })
             if (!confirmed.confirm) return
             await planApi.delete(id)
-            showToast('已删除')
+            showToast(t('ui.deleted'))
             break
           }
           case 'trigger':
             await planApi.trigger(id)
-            showToast('已触发执行')
+            showToast(t('ui.runRequested'))
             break
         }
         await load(1, false)
       } catch (error) {
-        showToast(error instanceof Error ? error.message : '操作失败')
+        showToast(error instanceof Error ? error.message : t('ui.operationFailed'))
       } finally {
         setBusyId(null)
       }
@@ -212,6 +217,7 @@ export function usePlansController(active: boolean, pageShowCount = 0, refreshVe
   return {
     user,
     userLoaded,
+    hasSession,
     plans,
     total,
     loading,

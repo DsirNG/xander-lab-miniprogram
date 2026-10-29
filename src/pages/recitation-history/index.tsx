@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { recitationApi, type RecitationAttempt, type RecitationMaterial } from '@/api/recitation'
 import { NavBar } from '@/components/NavBar'
 import { PageState } from '@/components/ui/PageState'
-import { t } from '@/i18n'
+import { t, useLocale } from '@/i18n'
 import { formatDateTime } from '@/utils/format'
 import './index.scss'
 
@@ -15,6 +15,7 @@ function statusText(attempt: RecitationAttempt) {
 }
 
 export default function RecitationHistoryPage() {
+  useLocale()
   const [materialId, setMaterialId] = useState(0)
   const [material, setMaterial] = useState<RecitationMaterial | null>(null)
   const [attempts, setAttempts] = useState<RecitationAttempt[]>([])

@@ -5,16 +5,17 @@ const { vibrateShort } = vi.hoisted(() => ({
 }))
 
 vi.mock('@tarojs/taro', () => ({
-  default: { vibrateShort },
+  default: { vibrateShort, hideKeyboard: vi.fn(() => Promise.resolve()) },
 }))
 
-import { navigateToTab, useTabBarStore } from './tabBar'
+import { exitChat, navigateToTab, useTabBarStore } from './tabBar'
 
 describe('tab bar navigation', () => {
   beforeEach(() => {
     vibrateShort.mockClear()
     useTabBarStore.setState({
       active: 'chat',
+      mainTab: 'calendar',
       refreshVersions: { chat: 0, calendar: 0, article: 0, user: 0 },
     })
   })
@@ -30,5 +31,19 @@ describe('tab bar navigation', () => {
     expect(navigateToTab('article')).toBe(true)
     expect(useTabBarStore.getState().active).toBe('article')
     expect(vibrateShort).toHaveBeenCalledOnce()
+  })
+
+  it('returns to the previous main tab without refreshing or discarding chat', () => {
+    navigateToTab('article')
+    navigateToTab('chat')
+    expect(useTabBarStore.getState().mainTab).toBe('article')
+    exitChat()
+    expect(useTabBarStore.getState().active).toBe('article')
+    expect(useTabBarStore.getState().refreshVersions.article).toBe(0)
+  })
+
+  it('exits directly opened chat to the default main page', () => {
+    exitChat()
+    expect(useTabBarStore.getState().active).toBe('calendar')
   })
 })

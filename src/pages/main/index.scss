@@ -3,8 +3,43 @@
   height: 100vh;
   /* The content layer owns clipping; the shell must let the iOS-style
    * capsule extend beyond the TabBar on all four sides. */
-  overflow: visible;
+  overflow: hidden;
   background: var(--color-canvas);
+}
+
+.main-shell__track {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  transform: translate3d(-100%, 0, 0);
+  transition: transform 360ms cubic-bezier(0.22, 0.8, 0.26, 1);
+}
+
+.main-shell--chat .main-shell__track {
+  transform: translate3d(0, 0, 0);
+}
+
+.main-shell__chat-page,
+.main-shell__main-page {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.main-shell__main-page .tab-bar {
+  position: absolute;
+}
+
+.main-shell__main-page .nav-bar {
+  position: absolute;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .main-shell__track {
+    transition: none;
+  }
 }
 
 .main-shell__content {
@@ -61,10 +96,9 @@
   padding: 0;
 }
 
-/* Chat's composer must remain above the floating TabBar while messages can
- * still scroll underneath it. */
+/* The full-screen conversation owns its bottom safe area. */
 .main-panel--chat .chat-composer-dock {
-  padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+  padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
 }
 
 .main-panel__eyebrow {
