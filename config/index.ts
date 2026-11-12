@@ -8,10 +8,17 @@ export default defineConfig({
   deviceRatio: { 390: 2 },
   sourceRoot: 'src',
   outputRoot: 'dist',
+  copy: { patterns: [{ from: 'src/theme.json', to: 'dist/theme.json' }, { from: 'src/native', to: 'dist/native' }], options: {} },
   framework: 'react',
   compiler: 'webpack5',
   alias: { '@': path.resolve(process.cwd(), 'src') },
-  mini: { postcss: { pxtransform: { enable: true }, cssModules: { enable: false } } },
+  mini: {
+    postcss: { pxtransform: { enable: true }, cssModules: { enable: false } },
+    webpackChain(chain) {
+      // Keep cross-chunk exports stable when WeChat replaces page and common bundles separately.
+      chain.optimization.set('mangleExports', false)
+    },
+  },
   h5: {
     publicPath: '/',
     staticDirectory: 'static',

@@ -4,9 +4,9 @@ import { request } from './http'
 export type ProfileOverview = {
   user: UserInfo
   points: number
-  blogCount: number
+  blogCount: number | null
 }
 
 export const profileApi = {
-  overview: () => request<ProfileOverview>('/api/profile/overview'),
+  overview: () => request<ProfileOverview>('/api/profile/overview?includeBlogCount=false'),
 }

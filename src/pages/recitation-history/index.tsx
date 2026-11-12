@@ -1,3 +1,5 @@
+import { ThemeView } from '@/components/ThemeView'
+import { Skeleton } from '@/components/Skeleton'
 import { Text, View } from '@tarojs/components'
 import Taro, { useLoad } from '@tarojs/taro'
 import { useEffect, useState } from 'react'
@@ -51,7 +53,7 @@ export default function RecitationHistoryPage() {
   }
 
   return (
-    <View className="page recitation-history-page">
+    <ThemeView className="page recitation-history-page">
       <NavBar title={t('recitation.history')} showBack />
       <View className="recitation-history-content">
         {material ? (
@@ -64,7 +66,7 @@ export default function RecitationHistoryPage() {
         ) : null}
 
         {loading ? (
-          <PageState kind="loading" title={t('common.loading')} />
+          <Skeleton layout="recitationHistory" />
         ) : attempts.length === 0 ? (
           <PageState kind="empty" title={t('recitation.noHistory')} />
         ) : (
@@ -96,6 +98,6 @@ export default function RecitationHistoryPage() {
           </View>
         )}
       </View>
-    </View>
+    </ThemeView>
   )
 }

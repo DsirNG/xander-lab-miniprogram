@@ -3,11 +3,15 @@
 }
 
 .plan-create-page .segmented {
-  margin-top: var(--space-3);
+  margin-top: var(--space-2);
 }
 
 .plan-form-card {
-  padding: var(--space-2) 0 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .form-textarea-short {
@@ -45,11 +49,21 @@
   justify-content: center;
   min-width: 64px;
   min-height: var(--control-height);
-  border-radius: var(--radius-pill);
-  background: var(--color-accent-soft);
-  color: var(--color-accent);
-  font-size: var(--text-body);
+  padding: 0 var(--space-3);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--color-surface-muted);
+  color: var(--color-ink);
+  font-size: var(--text-caption);
   font-weight: 600;
+  transition:
+    background-color var(--motion-fast) var(--ease-standard),
+    transform var(--motion-instant) var(--ease-standard);
+}
+
+.field-picker-action:active {
+  background: var(--color-surface-pressed);
+  transform: scale(var(--scale-press));
 }
 
 .picker-value {
@@ -69,7 +83,6 @@
   left: var(--space-5);
   z-index: 10;
   width: auto;
-  box-shadow: 0 8px 24px rgba(22, 119, 255, 0.18);
 }
 
 .ai-tip {
@@ -78,7 +91,7 @@
 }
 
 .generated-plans {
-  margin-top: var(--space-6);
+  margin-top: var(--space-5);
 }
 
 .generated-plan-row {
@@ -106,4 +119,5 @@
 .generated-plan-time {
   color: var(--color-ink-muted);
   font-size: var(--text-caption);
+  font-variant-numeric: tabular-nums;
 }

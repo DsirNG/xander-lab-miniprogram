@@ -2,10 +2,10 @@ import { t } from '@/i18n'
 import Taro from '@tarojs/taro'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { blogApi, type Article, type Category, type Tag } from '@/api/blog'
+import { ArticleListRequests } from './articleListRequests'
 import { usePanelActive } from '@/hooks/usePanelActive'
 
 const PAGE_SIZE = 10
-type RefreshSource = 'panel-active' | 'page-show' | 'tab-refresh'
 type ArticleFilters = { search: string; category: string; tag: string }
 
 function showToast(title: string) {
@@ -38,7 +38,17 @@ export function useBlogController(
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(false)
   const [loadedOnce, setLoadedOnce] = useState(false)
-  const requestSequence = useRef(0)
+  const requests = useRef<ArticleListRequests | null>(null)
+  if (!requests.current) requests.current = new ArticleListRequests(blogApi.getArticles)
+  const mounted = useRef(true)
+  useEffect(() => {
+    mounted.current = true
+    requests.current!.activate()
+    return () => {
+      mounted.current = false
+      requests.current!.dispose()
+    }
+  }, [])
   const handledPageShowRef = useRef(pageShowCount)
   const handledRefreshVersionRef = useRef(refreshVersion)
 
@@ -48,116 +58,56 @@ export function useBlogController(
   )
 
   const load = useCallback(async (targetPage: number, append: boolean, filters: ArticleFilters) => {
-    const requestId = ++requestSequence.current
-    console.log('[BlogController] LOAD_START', {
-      requestId,
-      targetPage,
-      append,
-      filters,
+    const loader = requests.current!
+    const pending = loader.run({
+      search: filters.search || undefined,
+      category: filters.category || undefined,
+      tag: filters.tag || undefined,
+      page: targetPage,
+      size: PAGE_SIZE,
     })
-    setLoading(true)
+    setLoading(loader.loading)
     try {
-      const result = await blogApi.getArticles({
-        search: filters.search || undefined,
-        category: filters.category || undefined,
-        tag: filters.tag || undefined,
-        page: targetPage,
-        size: PAGE_SIZE,
-      })
-      if (requestId !== requestSequence.current) {
-        console.log('[BlogController] LOAD_STALE', {
-          requestId,
-          latestRequestId: requestSequence.current,
-        })
-        return
-      }
-      console.log('[BlogController] LOAD_APPLY', {
-        requestId,
-        targetPage,
-        records: result.records.length,
-        total: result.total,
-      })
+      const result = await pending
+      if (!result || !mounted.current) return
       setArticles(previous => (append ? [...previous, ...result.records] : result.records))
       setTotal(result.total)
       setPage(targetPage)
+      setLoadedOnce(true)
     } catch (error) {
-      if (requestId === requestSequence.current) {
-        showToast(error instanceof Error ? error.message : t('ui.unableToLoadArticles'))
-      }
+      if (!mounted.current) return
+      setLoadedOnce(true)
+      showToast(error instanceof Error ? error.message : t('ui.unableToLoadArticles'))
     } finally {
-      if (requestId === requestSequence.current) {
-        setLoading(false)
-        setLoadedOnce(true)
-      }
+      if (mounted.current) setLoading(loader.loading)
     }
   }, [])
 
-  const refresh = useCallback(
-    async (source: RefreshSource = 'panel-active') => {
-      const filters = currentFilters()
-      console.log('[BlogController] REFRESH', { source, filters })
-      const requestId = ++requestSequence.current
-      const pageCount = Math.max(page, 1)
-      console.log('[BlogController] RELOAD_START', {
-        requestId,
-        pageCount,
-        filters,
+  const [taxonomyLoading, setTaxonomyLoading] = useState(true)
+  const taxonomyPending = useRef<Promise<void> | null>(null)
+  const refreshTaxonomy = useCallback(() => {
+    if (taxonomyPending.current) return taxonomyPending.current
+    setTaxonomyLoading(true)
+    const pending = Promise.allSettled([
+      blogApi.getCategories().then(value => {
+        if (mounted.current) setCategories(value)
+      }),
+      blogApi.getPopularTags(10).then(value => {
+        if (mounted.current) setPopularTags(value)
+      }),
+    ])
+      .then(() => undefined)
+      .finally(() => {
+        if (taxonomyPending.current === pending) taxonomyPending.current = null
+        if (mounted.current) setTaxonomyLoading(false)
       })
-      setLoading(true)
-      try {
-        const results = await Promise.all(
-          Array.from({ length: pageCount }, (_, index) =>
-            blogApi.getArticles({
-              search: filters.search || undefined,
-              category: filters.category || undefined,
-              tag: filters.tag || undefined,
-              page: index + 1,
-              size: PAGE_SIZE,
-            }),
-          ),
-        )
-        if (requestId !== requestSequence.current) {
-          console.log('[BlogController] RELOAD_STALE', {
-            requestId,
-            latestRequestId: requestSequence.current,
-          })
-          return
-        }
-        const records = results.flatMap(result => result.records)
-        const nextTotal = results[results.length - 1]?.total ?? 0
-        console.log('[BlogController] RELOAD_APPLY', {
-          requestId,
-          pageCount,
-          records: records.length,
-          total: nextTotal,
-        })
-        setArticles(records)
-        setTotal(nextTotal)
-        setPage(pageCount)
-      } catch (error) {
-        if (requestId === requestSequence.current) {
-          showToast(error instanceof Error ? error.message : t('ui.unableToLoadArticles'))
-        }
-      } finally {
-        if (requestId === requestSequence.current) {
-          setLoading(false)
-          setLoadedOnce(true)
-        }
-      }
-    },
-    [currentFilters, page],
-  )
-
-  useEffect(() => {
-    blogApi
-      .getCategories()
-      .then(setCategories)
-      .catch(() => setCategories([]))
-    blogApi
-      .getPopularTags(10)
-      .then(setPopularTags)
-      .catch(() => setPopularTags([]))
+    taxonomyPending.current = pending
+    return pending
   }, [])
+  const refresh = useCallback(() => {
+    void refreshTaxonomy()
+    return load(1, false, currentFilters())
+  }, [currentFilters, load, refreshTaxonomy])
 
   usePanelActive(active, { onShow: refresh })
 
@@ -166,14 +116,14 @@ export function useBlogController(
     if (!active) return
 
     handledRefreshVersionRef.current = refreshVersion
-    void refresh('tab-refresh')
+    void refresh()
   }, [active, refresh, refreshVersion])
 
   useEffect(() => {
     if (pageShowCount === 0 || pageShowCount === handledPageShowRef.current) return
 
     handledPageShowRef.current = pageShowCount
-    if (pageShowCount > 1 && active) void refresh('page-show')
+    if (pageShowCount > 1 && active) void refresh()
   }, [active, pageShowCount, refresh])
 
   const updateFilters = useCallback(
@@ -219,12 +169,13 @@ export function useBlogController(
   }, [selectAll])
 
   const loadMore = useCallback(() => {
-    if (!active || loading || articles.length >= total) return
+    if (!active || loading || requests.current?.loading || articles.length >= total) return
     void load(page + 1, true, currentFilters())
   }, [active, articles.length, currentFilters, load, loading, page, total])
 
   return {
     articles,
+    taxonomyLoading,
     categories,
     popularTags,
     category,

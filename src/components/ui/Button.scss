@@ -9,7 +9,12 @@
   border-radius: var(--radius-pill);
   font-size: var(--text-body);
   font-weight: 600;
+  letter-spacing: -0.01em;
   line-height: var(--leading-body);
+  transition:
+    opacity var(--motion-instant) var(--ease-standard),
+    background-color var(--motion-fast) var(--ease-standard),
+    transform var(--motion-instant) var(--ease-standard);
 }
 
 .ui-button::after {
@@ -32,13 +37,13 @@
 }
 
 .ui-button--primary {
-  background: var(--color-accent);
-  color: var(--color-surface);
+  background: var(--color-ink);
+  color: var(--color-on-accent);
 }
 
 .ui-button--secondary {
-  background: var(--color-accent-soft);
-  color: var(--color-accent);
+  background: var(--color-surface-muted);
+  color: var(--color-ink);
 }
 
 .ui-button--ghost {
@@ -52,9 +57,13 @@
 }
 
 .ui-button[disabled] {
-  opacity: 0.48;
+  background: var(--color-surface-pressed);
+  color: var(--color-ink-secondary);
+  opacity: 1;
 }
 
-.ui-button--pressed {
-  opacity: 0.78;
+.ui-button--pressed,
+.ui-button:active {
+  opacity: 0.82;
+  transform: scale(var(--scale-press));
 }

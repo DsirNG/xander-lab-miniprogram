@@ -16,8 +16,12 @@
 
 .animated-icon-wrap--active .animated-icon:not(.animated-icon--canvas-active) {
   opacity: 1;
-  filter: brightness(0);
+  filter: var(--icon-active-filter);
   animation: animated-icon-fallback-enter 180ms cubic-bezier(0.22, 0.8, 0.26, 1);
+}
+
+.animated-icon-wrap--static .animated-icon {
+  animation: none;
 }
 
 @keyframes animated-icon-fallback-enter {

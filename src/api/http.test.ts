@@ -18,6 +18,8 @@ vi.mock('@tarojs/taro', () => ({
   },
 }))
 
+import { authApi } from './auth'
+import { getSessionVersion, privateCacheKeys, writePrivateCache } from '@/utils/privateCache'
 import { request, tokenStorage, uploadFile } from './http'
 import { setLocale, setReplyLanguage } from '@/i18n'
 
@@ -64,7 +66,9 @@ describe('parallel authenticated requests', () => {
     setLocale('zh')
     mocks.request.mockResolvedValue(ok(null))
     await request('/api/points')
-    expect(mocks.request.mock.calls[mocks.request.mock.calls.length - 1][0].header['Accept-Language']).toBe('zh-CN')
+    expect(
+      mocks.request.mock.calls[mocks.request.mock.calls.length - 1][0].header['Accept-Language'],
+    ).toBe('zh-CN')
     expect(mocks.request.mock.calls[0][0].header['Accept-Language']).toBe('en')
   })
 
@@ -183,4 +187,43 @@ describe('parallel authenticated requests', () => {
     expect(mocks.uploadFile.mock.calls[1][0].header.Authorization).toBe('Bearer new-access')
     expect(mocks.trigger).not.toHaveBeenCalled()
   })
+})
+
+it('anonymous reads omit authorization and never refresh or clear the signed-in session', async () => {
+  tokenStorage.setTokens('private-access', 'private-refresh')
+  mocks.request.mockReset().mockResolvedValue(unauthorized)
+  await expect(request('/api/blog/posts', { anonymous: true, header: { authorization: 'explicit-token' } })).rejects.toMatchObject({ code: 401 })
+  expect(mocks.request).toHaveBeenCalledTimes(1)
+  const options = mocks.request.mock.calls[0][0]
+  expect(Object.keys(options.header).some(key => key.toLowerCase() === 'authorization')).toBe(false)
+  expect(options.anonymous).toBeUndefined()
+  expect(tokenStorage.getAccessToken()).toBe('private-access')
+})
+
+it('clears account data immediately on logout and blocks late results from the previous account', async () => {
+  tokenStorage.setTokens('private-access', 'private-refresh')
+  const version = getSessionVersion()
+  for (const key of Object.values(privateCacheKeys)) mocks.storage.set(key, 'private-data')
+  const oldRequest = deferred<ReturnType<typeof ok>>()
+  const logoutRequest = deferred<ReturnType<typeof ok>>()
+  mocks.request.mockImplementation(({ url }) =>
+    url.endsWith('/api/auth/logout') ? logoutRequest.promise : oldRequest.promise,
+  )
+
+  const pending = request('/api/points')
+  const signOut = authApi.logout()
+  expect(tokenStorage.getAccessToken()).toBe('')
+  for (const key of Object.values(privateCacheKeys)) expect(mocks.storage.has(key)).toBe(false)
+  expect(mocks.request).toHaveBeenLastCalledWith(expect.objectContaining({
+    header: expect.objectContaining({ Authorization: 'Bearer private-access' }),
+  }))
+
+  tokenStorage.setTokens('next-access', 'next-refresh')
+  writePrivateCache(privateCacheKeys.pointsOverview, 'late-balance', version)
+  expect(mocks.storage.has(privateCacheKeys.pointsOverview)).toBe(false)
+  oldRequest.resolve(ok({ balance: 500 }))
+  logoutRequest.resolve(ok(null))
+  await expect(pending).rejects.toMatchObject({ code: 401 })
+  await expect(signOut).resolves.toBeNull()
+  expect(tokenStorage.getAccessToken()).toBe('next-access')
 })

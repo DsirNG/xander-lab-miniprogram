@@ -1,5 +1,7 @@
 import { ScrollView, View } from '@tarojs/components'
 import { useEffect, useRef } from 'react'
+import { NavBar } from '@/components/NavBar'
+import { t } from '@/i18n'
 import { BlogContent } from '@/features/blog/BlogContent'
 import { useBlogController } from '@/features/blog/useBlogController'
 import { useTabBarStore } from '@/store/tabBar'
@@ -54,8 +56,10 @@ export function BlogPanel({
       className={`main-panel main-panel--article ${active ? 'is-active' : ''}`}
       hidden={!active}
     >
+      <NavBar title={t('ui.blogs')} />
       <ScrollView
         scrollY
+        enableBackToTop
         className="main-panel__scroll"
         onScrollToLower={() => controller.loadMore()}
       >

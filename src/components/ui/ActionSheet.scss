@@ -1,0 +1,7 @@
+.app-action-sheet { position: fixed; inset: 0; z-index: 2000; }
+.app-action-sheet-backdrop { position: absolute; inset: 0; background: var(--color-overlay); }
+.app-action-sheet-panel { position: absolute; left: 0; right: 0; bottom: 0; padding: 8px 20px calc(12px + env(safe-area-inset-bottom)); border-radius: 20px 20px 0 0; background: var(--color-surface); color: var(--color-ink); }
+.app-action-sheet-title { display: block; padding: 12px 0; text-align: center; font-size: var(--text-caption); color: var(--color-ink-muted); }
+.app-action-sheet-option { display: flex; align-items: center; justify-content: center; width: 100%; min-height: 52px; border: 0; border-radius: 10px; background: transparent; color: var(--color-ink); font-size: var(--text-body); }
+.app-action-sheet-option::after { border: 0; }
+.app-action-sheet-option--pressed { background: var(--color-surface-hover); }

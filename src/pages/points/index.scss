@@ -1,10 +1,14 @@
+@use '../../styles/wallet';
+
 .points-page-card {
-  margin-top: 20px;
+  margin-top: var(--space-1);
 }
+
 .ledger-info {
   flex: 1;
   min-width: 0;
 }
+
 .ledger-reason {
   display: block;
   overflow: hidden;

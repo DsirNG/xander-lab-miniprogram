@@ -1,3 +1,6 @@
+import { ThemeView } from '@/components/ThemeView'
+import { Skeleton } from '@/components/Skeleton'
+import { getSessionVersion, privateCacheKeys, readPrivateCache, useSessionVersion, writePrivateCache } from '@/utils/privateCache'
 import { t, useLocale } from '@/i18n'
 import { Button, Input, Picker, Text, Textarea, View } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
@@ -24,12 +27,17 @@ type LocalDraft = {
   savedAt: number
 }
 
-const DRAFT_KEY = 'dinqorai:miniprogram:publish-draft'
-const PUBLISH_REQUEST_KEY = 'dinqorai:miniprogram:publish-request'
+const DRAFT_KEY = privateCacheKeys.publishDraft
+const PUBLISH_REQUEST_KEY = privateCacheKeys.publishRequest
 
 const createRequestId = () => `publish-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
 
 export default function Publish() {
+  const session = useSessionVersion()
+  return <PublishContent key={session} />
+}
+
+function PublishContent() {
   useLocale()
   const { params } = useRouter()
   const editId = params.id ? Number(params.id) : null
@@ -37,6 +45,7 @@ export default function Publish() {
   const [title, setTitle] = useState('')
   const [summary, setSummary] = useState('')
   const [categoryId, setCategoryId] = useState<number | undefined>()
+  const [loadingCategories, setLoadingCategories] = useState(true)
   const [categories, setCategories] = useState<Category[]>([])
   const [tags, setTags] = useState('')
   const [content, setContent] = useState('')
@@ -51,11 +60,12 @@ export default function Publish() {
       .getCategories()
       .then(setCategories)
       .catch(() => setCategories([]))
+      .finally(() => setLoadingCategories(false))
   }, [])
 
   useEffect(() => {
     if (!editId) {
-      const draft = Taro.getStorageSync<LocalDraft>(DRAFT_KEY)
+      const draft = readPrivateCache<LocalDraft>(DRAFT_KEY)
       if (draft && typeof draft === 'object') {
         setTitle(draft.title || '')
         setSummary(draft.summary || '')
@@ -93,10 +103,12 @@ export default function Publish() {
     if (!draftReady || editId || saving) return
     const hasContent = Boolean(title || summary || tags || content)
     if (!hasContent) return
+    const session = getSessionVersion()
     const timer = setTimeout(() => {
+      if (session !== getSessionVersion()) return
       const savedAt = Date.now()
       const draft: LocalDraft = { title, summary, categoryId, tags, content, savedAt }
-      Taro.setStorageSync(DRAFT_KEY, draft)
+      writePrivateCache(DRAFT_KEY, draft, session)
       setDraftSavedAt(savedAt)
     }, 1200)
     return () => clearTimeout(timer)
@@ -227,8 +239,15 @@ export default function Publish() {
     }
   }
 
+  if (!draftReady || loadingCategories) return (
+    <ThemeView className="publish-page">
+      <NavBar title={editId ? t('ui.editArticle') : t('ui.publishArticle')} showBack />
+      <Skeleton layout="publishForm" />
+    </ThemeView>
+  )
+
   return (
-    <View className="publish-page">
+    <ThemeView className="publish-page">
       <NavBar
         title={editId ? t('ui.editArticle') : t('ui.publishArticle')}
         showBack
@@ -368,6 +387,6 @@ export default function Publish() {
           {editId ? t('ui.updatePublishedArticle') : t('ui.publish')}
         </Button>
       </View>
-    </View>
+    </ThemeView>
   )
 }

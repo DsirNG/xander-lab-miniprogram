@@ -1,3 +1,5 @@
+import { ThemeView } from '@/components/ThemeView'
+import { Skeleton } from '@/components/Skeleton'
 import { t, useLocale } from '@/i18n'
 import { Button, Input, Picker, Switch, Text, Textarea, View } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
@@ -145,7 +147,7 @@ export default function PlanCreate() {
   }
 
   return (
-    <View className="detail-page plan-create-page">
+    <ThemeView className="detail-page plan-create-page">
       <NavBar title={editId ? t('ui.editPlan') : t('ui.newPlan')} showBack />
 
       {!editId ? (
@@ -165,7 +167,7 @@ export default function PlanCreate() {
         </View>
       ) : null}
 
-      {loadingPlan ? <Text className="data-state">{t('ui.loadingPlans')}</Text> : null}
+      {loadingPlan ? <Skeleton layout="planForm" /> : null}
       {!loadingPlan ? (
         <View className="plan-form-card">
           <View className="form-item">
@@ -330,6 +332,6 @@ export default function PlanCreate() {
           ))}
         </View>
       ) : null}
-    </View>
+    </ThemeView>
   )
 }

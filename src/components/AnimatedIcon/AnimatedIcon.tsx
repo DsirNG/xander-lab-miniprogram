@@ -8,7 +8,7 @@ import './AnimatedIcon.scss'
 
 const fallbackIcons: Record<AnimatedIconName, string> = {
   chat: require('@/assets/icons/chat.svg'),
-  calendar: require('@/assets/icons/calendar.svg'),
+  files: require('@/assets/icons/files.svg'),
   article: require('@/assets/icons/article.svg'),
   user: require('@/assets/icons/user.svg'),
 }
@@ -18,6 +18,7 @@ let idSeed = 0
 type AnimatedIconProps = {
   name: AnimatedIconName
   active: boolean
+  canvasEnabled?: boolean
   className?: string
   size?: number
   activeColor?: string
@@ -95,7 +96,7 @@ function AnimatedIconBase({
     const target = 1
     const start = progressRef.current
     const startedAt = Date.now()
-    const duration = 2000
+    const duration = 450
 
     console.log('[AnimatedIcon] ANIMATION_START', {
       name,
@@ -106,8 +107,7 @@ function AnimatedIconBase({
 
     timerRef.current = setInterval(() => {
       const elapsed = Math.min(1, (Date.now() - startedAt) / duration)
-      const eased = 1 - Math.pow(1 - elapsed, 3)
-      const progress = start + (target - start) * eased
+      const progress = start + (target - start) * elapsed
       progressRef.current = progress
       render(progress)
 
@@ -149,4 +149,27 @@ function AnimatedIconBase({
 // Same-tab refreshes update panel data but keep every icon's props unchanged.
 // Memoizing the leaf prevents those parent renders from restarting or
 // re-creating the icon subtree; changing active still runs the draw effect.
-export const AnimatedIcon = memo(AnimatedIconBase)
+export const AnimatedIcon = memo(function AnimatedIcon({
+  canvasEnabled = true,
+  ...props
+}: AnimatedIconProps) {
+  // Native Canvas can remain at its old screen position during parent transforms.
+  // Unmount it while the drawer moves; opacity alone does not remove its native layer.
+  if (!canvasEnabled) {
+    const { name, active, className = '', size = 21 } = props
+    return (
+      <View
+        className={`animated-icon-wrap animated-icon-wrap--static ${className} ${active ? 'animated-icon-wrap--active' : ''}`}
+        style={{ width: `${size}px`, height: `${size}px` }}
+      >
+        <Image
+          className="animated-icon"
+          src={fallbackIcons[name]}
+          mode="aspectFit"
+          style={{ width: `${size}px`, height: `${size}px` }}
+        />
+      </View>
+    )
+  }
+  return <AnimatedIconBase {...props} />
+})

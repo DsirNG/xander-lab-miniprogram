@@ -1,3 +1,5 @@
+import { ThemeView } from '@/components/ThemeView'
+import { Skeleton } from '@/components/Skeleton'
 import { Text, View } from '@tarojs/components'
 import Taro, { useLoad } from '@tarojs/taro'
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -164,23 +166,23 @@ export default function RecitationPracticePage() {
 
   if (loading) {
     return (
-      <View className="page">
+      <ThemeView className="page">
         <NavBar title={t('recitation.practice')} showBack />
-        <PageState kind="loading" title={t('common.loading')} />
-      </View>
+        <Skeleton layout="recitationPractice" />
+      </ThemeView>
     )
   }
   if (!material) {
     return (
-      <View className="page">
+      <ThemeView className="page">
         <NavBar title={t('recitation.practice')} showBack />
         <PageState kind="error" title={t('recitation.materialMissing')} />
-      </View>
+      </ThemeView>
     )
   }
 
   return (
-    <View className="page recitation-practice-page">
+    <ThemeView className="page recitation-practice-page">
       <NavBar title={material.title} showBack />
       <View className="recitation-practice-content">
         <View className="recitation-mode-row">
@@ -230,6 +232,6 @@ export default function RecitationPracticePage() {
           <Text className="recitation-record-hint">{t('recitation.recordHint')}</Text>
         </View>
       </View>
-    </View>
+    </ThemeView>
   )
 }

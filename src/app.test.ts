@@ -7,12 +7,14 @@ const mocks = vi.hoisted(() => ({
   off: vi.fn(),
   navigateTo: vi.fn(() => Promise.resolve()),
   getCurrentPages: vi.fn(),
+  showModal: vi.fn(),
 }))
 vi.mock('react', () => ({ useEffect: (effect: () => unknown) => effect() }))
 vi.mock('@tarojs/taro', () => ({
   default: {
     eventCenter: { on: mocks.on, off: mocks.off },
     navigateTo: mocks.navigateTo,
+    showModal: mocks.showModal,
     getCurrentPages: mocks.getCurrentPages,
   },
 }))
@@ -28,15 +30,18 @@ beforeEach(() => {
   mocks.on.mockClear()
   mocks.setUser.mockClear()
   mocks.navigateTo.mockClear()
+  mocks.showModal.mockReset()
+  mocks.showModal.mockResolvedValue({ confirm: true })
   mocks.getCurrentPages.mockReturnValue([{ route: 'pages/points/index' }])
 })
 
-it('handles session expiration centrally and opens the login page', () => {
+it('confirms before opening login after session expiration', async () => {
   App({ children: null })
   const [, handleLogout] = mocks.on.mock.calls[0]
   handleLogout()
   expect(mocks.setUser).toHaveBeenCalledWith(null)
-  expect(mocks.navigateTo).toHaveBeenCalledWith({ url: '/pages/login/index' })
+  expect(mocks.navigateTo).not.toHaveBeenCalled()
+  await vi.waitFor(() => expect(mocks.navigateTo).toHaveBeenCalledWith({ url: '/pages/login/index' }))
 })
 
 it('does not stack another login page when already signing in', () => {
@@ -44,5 +49,16 @@ it('does not stack another login page when already signing in', () => {
   App({ children: null })
   const [, handleLogout] = mocks.on.mock.calls[0]
   handleLogout()
+  expect(mocks.navigateTo).not.toHaveBeenCalled()
+  expect(mocks.showModal).not.toHaveBeenCalled()
+})
+
+it('stays on the current page when the login prompt is declined', async () => {
+  mocks.showModal.mockResolvedValue({ confirm: false })
+  App({ children: null })
+  const [, handleLogout] = mocks.on.mock.calls[0]
+  handleLogout()
+  expect(mocks.showModal).toHaveBeenCalledOnce()
+  await Promise.resolve()
   expect(mocks.navigateTo).not.toHaveBeenCalled()
 })

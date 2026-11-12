@@ -210,10 +210,6 @@ export function usePlansController(active: boolean, pageShowCount = 0, refreshVe
     void Taro.navigateTo({ url: `/pages/plan-detail/index?id=${id}` })
   }, [])
 
-  const openCreate = useCallback(() => {
-    void Taro.navigateTo({ url: '/pages/plan-create/index' })
-  }, [])
-
   return {
     user,
     userLoaded,
@@ -226,7 +222,6 @@ export function usePlansController(active: boolean, pageShowCount = 0, refreshVe
     loadMore,
     runAction,
     openDetail,
-    openCreate,
   }
 }
 

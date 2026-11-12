@@ -228,6 +228,7 @@ function TabBarBase() {
             <AnimatedIcon
               key={item.key}
               name={item.icon}
+              canvasEnabled={false}
               active={active === item.key}
               className="tab-icon"
             />
@@ -240,6 +241,6 @@ function TabBarBase() {
 }
 
 // The MainShell also re-renders when a same-tab refresh increments its data
-// version. TabBar has no props, so skip that parent render entirely; its own
+// version. Stable props let it skip that parent render entirely; its own
 // Zustand subscription still re-renders it when the selected tab changes.
 export const TabBar = memo(TabBarBase)

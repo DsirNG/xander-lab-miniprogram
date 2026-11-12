@@ -1,20 +1,32 @@
 .manage-toolbar {
   display: flex;
   justify-content: flex-end;
-  margin-top: var(--space-3);
+  margin: var(--space-1) 0 var(--space-3);
 }
 
 .manage-write {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  min-height: 44px;
-  color: var(--color-accent);
-  font-size: var(--text-body);
+  min-height: 36px;
+  padding: 0 var(--space-4);
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--color-ink);
+  color: var(--color-on-accent);
+  font-size: var(--text-caption);
   font-weight: 600;
+  transition:
+    opacity var(--motion-instant) var(--ease-standard),
+    transform var(--motion-instant) var(--ease-standard);
+}
+
+.manage-write:active {
+  opacity: 0.85;
+  transform: scale(var(--scale-press));
 }
 
 .manage-search {
-  margin-top: var(--space-3);
+  margin-top: var(--space-2);
 }
 
 .manage-segmented {
@@ -27,16 +39,6 @@
   font-size: var(--text-caption);
 }
 
-.manage-card {
-  margin: 0;
-  padding: var(--space-4) 0;
-  background: transparent;
-}
-
-.manage-card + .manage-card {
-  box-shadow: inset 0 1px 0 var(--color-divider);
-}
-
 .manage-head {
   align-items: center;
 }
@@ -45,14 +47,18 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 44px;
+  width: var(--control-height);
+  height: var(--control-height);
   margin: -10px -10px -10px 0;
   border-radius: 50%;
+  transition:
+    background-color var(--motion-instant) var(--ease-standard),
+    transform var(--motion-instant) var(--ease-standard);
 }
 
 .manage-more:active {
   background: var(--color-surface-muted);
+  transform: scale(var(--scale-press-icon));
 }
 
 .manage-more.is-busy {
@@ -62,4 +68,5 @@
 .manage-more .icon {
   width: 20px;
   height: 20px;
+  opacity: 0.72;
 }

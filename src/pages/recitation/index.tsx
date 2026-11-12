@@ -1,3 +1,5 @@
+import { ThemeView } from '@/components/ThemeView'
+import { Skeleton } from '@/components/Skeleton'
 import { Input, Text, Textarea, View } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useMemo, useState } from 'react'
@@ -87,7 +89,7 @@ export default function RecitationPage() {
   }
 
   return (
-    <View className="page recitation-page">
+    <ThemeView className="page recitation-page">
       <NavBar title={t('recitation.title')} showBack />
       <View className="recitation-content">
         <View className="knowledge-summary">
@@ -145,7 +147,7 @@ export default function RecitationPage() {
 
         <SectionHeader title={t('recitation.myMaterials')} />
         {loading ? (
-          <PageState kind="loading" title={t('common.loading')} />
+          <Skeleton layout="recitation" />
         ) : materials.length === 0 ? (
           <PageState
             kind="empty"
@@ -184,6 +186,6 @@ export default function RecitationPage() {
           </View>
         )}
       </View>
-    </View>
+    </ThemeView>
   )
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { AgentMessage } from '@/api/agent'
-import { isImageTool, parseImageToolResult } from './imageMessage'
+import { isImageTool, parseImageToolResult, splitImageAnswer, sameImageResource } from './imageMessage'
 
 const toolResult = (toolName: string, content: string): AgentMessage => ({
   id: 1,
@@ -36,4 +36,12 @@ describe('image message tools', () => {
       title: 'existing.png',
     })
   })
+})
+
+it('renders signed OSS image answers as native image parts without changing signatures', () => {
+  const url = 'https://images.example.com/photos/image.png?x-oss-date=20261111T013011Z&x-oss-signature=abc%2F123'
+  expect(splitImageAnswer('![puppy](' + url + ')')).toEqual([{ type: 'image', title: 'puppy', url }])
+  const mixed = splitImageAnswer('Here it is\n\n![puppy](' + url + ')\n\nDone')
+  expect(mixed.map(part => part.type)).toEqual(['text', 'image', 'text'])
+  expect(sameImageResource(url, url.replace('abc%2F123', 'new-signature'))).toBe(true)
 })

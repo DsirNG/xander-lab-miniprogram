@@ -8,10 +8,10 @@ export const TAB_ITEMS = [
     },
   },
   {
-    key: 'calendar',
-    icon: 'calendar',
+    key: 'files',
+    icon: 'files',
     get label() {
-      return t('ui.plans')
+      return t('ui.files')
     },
   },
   {

@@ -2,20 +2,26 @@
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  min-height: 60px;
+  min-height: 56px;
   padding: var(--space-3) 0;
+  transition:
+    opacity var(--motion-instant) var(--ease-standard),
+    transform var(--motion-instant) var(--ease-standard);
 }
 
 .ui-list-row + .ui-list-row {
-  box-shadow: inset 0 1px 0 var(--color-divider);
+  box-shadow: none;
 }
 
 .ui-list-row--interactive {
   min-height: 64px;
 }
 
-.ui-list-row--pressed {
-  background: var(--color-surface-muted);
+.ui-list-row--pressed,
+.ui-list-row--interactive:active {
+  opacity: 0.72;
+  transform: scale(var(--scale-press-subtle));
+  background: transparent;
 }
 
 .ui-list-row-leading,

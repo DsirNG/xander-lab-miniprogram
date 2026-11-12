@@ -1,11 +1,11 @@
 import { beforeEach, expect, it, vi } from 'vitest'
 
-vi.mock('./http', () => ({ request: vi.fn(), uploadFile: vi.fn() }))
+vi.mock('./http', () => ({ request: vi.fn(), requestEventStream: vi.fn(), uploadFile: vi.fn() }))
 vi.mock('@tarojs/taro', () => ({
   default: { getStorageSync: () => '', getSystemInfoSync: () => ({ language: 'zh' }) },
 }))
 
-import { request } from './http'
+import { request, requestEventStream } from './http'
 import { agentApi } from './agent'
 import { setLocale, setReplyLanguage } from '@/i18n'
 
@@ -31,10 +31,32 @@ it('sends language preferences separately from the original message', async () =
   setLocale('en')
   setReplyLanguage('auto')
   const content = 'Explain this 中文 identifier'
-  await agentApi.sendMessage(7, content, [])
-  expect(request).toHaveBeenCalledWith('/api/agent/conversations/7/messages', {
-    method: 'POST',
-    data: { content, attachments: [], locale: 'en', replyLanguage: 'auto' },
-  })
+  const onEvent = vi.fn()
+  agentApi.sendMessageStream(7, content, [], onEvent)
+  expect(requestEventStream).toHaveBeenCalledWith(
+    '/api/agent/conversations/7/messages/stream',
+    {
+      method: 'POST',
+      data: { content, attachments: [], locale: 'en', replyLanguage: 'auto' },
+    },
+    onEvent,
+  )
   setLocale('zh')
+})
+
+it('pins and unpins conversations using the existing server endpoints', async () => {
+  vi.mocked(request).mockResolvedValue({ id: 7, isPinned: 1 })
+  await agentApi.setPinned(7, true)
+  expect(request).toHaveBeenLastCalledWith('/api/agent/conversations/7/pin', { method: 'POST' })
+  await agentApi.setPinned(7, false)
+  expect(request).toHaveBeenLastCalledWith('/api/agent/conversations/7/pin', { method: 'DELETE' })
+})
+
+it('supports paged server-side conversation search and read tracking', async () => {
+  const items = [{ id: 3, title: 'Pinned', isPinned: 1 }]
+  vi.mocked(request).mockResolvedValue({ items, hasMore: true })
+  expect(await agentApi.listConversationPage(2, 'A&B')).toEqual({ items, hasMore: true })
+  expect(request).toHaveBeenLastCalledWith('/api/agent/conversations?page=2&size=20&search=A%26B')
+  await agentApi.markRead(3)
+  expect(request).toHaveBeenLastCalledWith('/api/agent/conversations/3/read', { method: 'POST' })
 })

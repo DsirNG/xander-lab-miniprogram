@@ -1,5 +1,6 @@
 import Taro from '@tarojs/taro'
 import { API_SERVER_ORIGIN, tokenStorage } from './http'
+import { createStreamWatchdog } from './streamWatchdog'
 
 export type AgentStreamEvent = {
   id?: number
@@ -31,7 +32,7 @@ function safeErrorMessage(error: unknown, token: string) {
 
 /**
  * 订阅一轮智能体执行的事件流（WebSocket）。
- * 小程序不支持 SSE 流式读取，后端 /ws/agent 按 SSE 语义逐事件推送；
+ * 用于恢复已有轮次；新消息通过 HTTP 分块 SSE 直接消费，后端 /ws/agent 重放持久化事件。
  * 客户端心跳保活，服务端推 pong 回执。非终态断线后按指数退避自动重连，
  * 并利用持久化事件 id 去重服务端重放帧。返回关闭函数。
  */
@@ -48,6 +49,7 @@ export function connectAgentStream(
   let lastEventId = 0
   let socketTask: Taro.SocketTask | null = null
   let receivedFirstEvent = false
+  let watchdog: ReturnType<typeof createStreamWatchdog> | null = null
   const socketOrigin = API_SERVER_ORIGIN.replace(/^http/, 'ws')
   const url = `${socketOrigin}/ws/agent?conversationId=${conversationId}&runVersion=${runVersion}`
 
@@ -58,6 +60,8 @@ export function connectAgentStream(
   }
 
   const clearHeartbeat = () => {
+    watchdog?.stop()
+    watchdog = null
     if (heartbeatTimer) {
       clearInterval(heartbeatTimer)
       heartbeatTimer = null
@@ -82,6 +86,15 @@ export function connectAgentStream(
   const connect = () => {
     if (closed || terminal) return
     let settled = false
+    clearHeartbeat()
+    watchdog = createStreamWatchdog(() => {
+      settled = true
+      clearHeartbeat()
+      const staleTask = socketTask
+      socketTask = null
+      scheduleReconnect()
+      staleTask?.close({ code: 1000 })
+    })
     const token = tokenStorage.getAccessToken()
     trace('connecting', ` attempt=${reconnectAttempt + 1} tokenPresent=${Boolean(token)}`)
     Taro.connectSocket({
@@ -89,7 +102,7 @@ export function connectAgentStream(
       header: token ? { Authorization: `Bearer ${token}` } : {},
     })
       .then(task => {
-        if (closed || terminal) {
+        if (closed || terminal || settled) {
           trace('socket task resolved after local close')
           task.close({ code: 1000 })
           return
@@ -104,8 +117,12 @@ export function connectAgentStream(
         }
 
         task.onOpen(() => {
-          if (closed || terminal) return
+          if (closed || terminal || settled) return
           clearHeartbeat()
+          watchdog = createStreamWatchdog(() => {
+            handleDisconnect()
+            task.close({ code: 1000 })
+          })
           trace('connected')
           handlers.onOpen?.()
           heartbeatTimer = setInterval(() => {
@@ -113,9 +130,10 @@ export function connectAgentStream(
           }, HEARTBEAT_INTERVAL)
         })
         task.onMessage(res => {
-          if (closed || terminal) return
+          if (closed || terminal || settled) return
           try {
             const payload = JSON.parse(res.data as string) as AgentStreamEvent
+            watchdog?.touch()
             if (payload.event === 'ping') {
               reconnectAttempt = 0
               task.send({ data: JSON.stringify({ event: 'pong' }) })
@@ -137,8 +155,13 @@ export function connectAgentStream(
                 lastEventId = eventId
               }
             }
-            if (payload.event === 'complete' || payload.event === 'error') {
+            if (
+              payload.event === 'complete' ||
+              payload.event === 'error' ||
+              payload.event === 'approval_required'
+            ) {
               terminal = true
+              clearHeartbeat()
               trace('terminal event received', ` event=${payload.event} id=${payload.id ?? '-'}`)
             }
             handlers.onEvent(payload)
@@ -158,6 +181,7 @@ export function connectAgentStream(
           handleDisconnect()
         })
         task.onError(error => {
+          if (closed || terminal || settled) return
           const message = safeErrorMessage(error, token)
           console.warn(
             `[AgentWS] connection error conversationId=${conversationId} runVersion=${runVersion}: ${message}`,
@@ -167,6 +191,9 @@ export function connectAgentStream(
         })
       })
       .catch(error => {
+        if (closed || terminal || settled) return
+        settled = true
+        clearHeartbeat()
         const message = safeErrorMessage(error, token)
         console.warn(
           `[AgentWS] connectSocket failed conversationId=${conversationId} runVersion=${runVersion}: ${message}`,

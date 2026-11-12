@@ -1,4 +1,6 @@
+import { promptLogin } from '@/utils/loginPrompt'
 import './app.scss'
+import './components/Skeleton.scss'
 import Taro from '@tarojs/taro'
 import { useEffect, type ReactNode } from 'react'
 import { useUserStore } from '@/store/user'
@@ -14,10 +16,7 @@ export default function App({ children }: { children: ReactNode }) {
   useEffect(() => {
     const handleLogout = () => {
       setUser(null)
-      const pages = Taro.getCurrentPages()
-      if (pages[pages.length - 1]?.route !== 'pages/login/index') {
-        void Taro.navigateTo({ url: '/pages/login/index' }).catch(() => undefined)
-      }
+      void promptLogin()
     }
     Taro.eventCenter.on('auth:logout', handleLogout)
     return () => {

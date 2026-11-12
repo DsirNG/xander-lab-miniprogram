@@ -40,3 +40,27 @@ export function parseImageToolResult(
     return null
   }
 }
+
+export type ImageMessagePart =
+  | { type: 'text'; content: string }
+  | { type: 'image'; url: string; title: string }
+
+/** Pull image answers out of RichText so signed URLs stay intact and can be previewed. */
+export function splitImageAnswer(content: string): ImageMessagePart[] {
+  const parts: ImageMessagePart[] = []
+  const pattern = /!\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)/g
+  let end = 0
+  for (const match of content.matchAll(pattern)) {
+    const start = match.index!
+    if (start > end) parts.push({ type: 'text', content: content.slice(end, start) })
+    parts.push({ type: 'image', title: match[1], url: match[2].replace(/&amp;/g, '&') })
+    end = start + match[0].length
+  }
+  if (end < content.length) parts.push({ type: 'text', content: content.slice(end) })
+  return parts
+}
+
+export function sameImageResource(first: string, second: string) {
+  const resource = (url: string) => url.split(/[?#]/, 1)[0]
+  return resource(first) === resource(second)
+}

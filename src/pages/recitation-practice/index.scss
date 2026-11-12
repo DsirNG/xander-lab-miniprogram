@@ -4,52 +4,62 @@
   min-height: 100vh;
   background: var(--color-canvas);
 }
+
 .recitation-practice-content {
-  padding: var(--space-4);
+  padding: var(--space-4) var(--space-5);
 }
+
 .recitation-mode-row {
   display: flex;
   gap: var(--space-2);
   margin-bottom: var(--space-4);
 }
+
 .recitation-source-card,
 .recitation-recorder-card {
   padding: var(--space-5);
-  background: var(--color-surface);
+  border: 0;
+  background: var(--color-surface-muted);
   border-radius: var(--radius-lg);
 }
+
 .recitation-source-card {
   min-height: 220px;
 }
+
 .recitation-source-card--hidden {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--color-accent-soft);
 }
+
 .recitation-source-text {
   color: var(--color-ink);
   font-size: var(--text-title);
   line-height: 30px;
   white-space: pre-wrap;
 }
+
 .recitation-hidden-text {
-  color: var(--color-accent);
+  color: var(--color-ink-secondary);
   font-size: var(--text-title);
   font-weight: 600;
 }
+
 .recitation-recorder-card {
   margin-top: var(--space-4);
   text-align: center;
 }
+
 .recitation-record-status {
   display: block;
   margin-bottom: var(--space-4);
   color: var(--color-ink);
   font-size: var(--text-heading);
   line-height: var(--leading-heading);
-  font-weight: 600;
+  font-weight: 650;
 }
+
 .recitation-record-hint {
   display: block;
   margin-top: var(--space-3);

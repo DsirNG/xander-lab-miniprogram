@@ -1,14 +1,15 @@
 import { View } from '@tarojs/components'
 import { useEffect, useRef } from 'react'
-import { ChatContent } from '@/features/chat/ChatContent'
+import { ChatContent, type ChatDrawerPhase } from '@/features/chat/ChatContent'
 
 type ChatPanelProps = {
   active: boolean
   refreshVersion?: number
+  onDrawerPhaseChange: (phase: ChatDrawerPhase) => void
 }
 
 /** Chat business content hosted inside the persistent MainShell. */
-export function ChatPanel({ active, refreshVersion = 0 }: ChatPanelProps) {
+export function ChatPanel({ active, refreshVersion = 0, onDrawerPhaseChange }: ChatPanelProps) {
   const renderCountRef = useRef(0)
   renderCountRef.current += 1
 
@@ -30,8 +31,12 @@ export function ChatPanel({ active, refreshVersion = 0 }: ChatPanelProps) {
   }, [active])
 
   return (
-    <View className="main-panel main-panel--chat is-active">
-      <ChatContent panelActive={active} refreshVersion={refreshVersion} />
+    <View className={`main-panel main-panel--chat ${active ? 'is-active' : ''}`} hidden={!active}>
+      <ChatContent
+        panelActive={active}
+        refreshVersion={refreshVersion}
+        onDrawerPhaseChange={onDrawerPhaseChange}
+      />
     </View>
   )
 }

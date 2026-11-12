@@ -1,3 +1,5 @@
+import { ThemeView } from '@/components/ThemeView'
+import { Skeleton } from '@/components/Skeleton'
 import { Button, Text, View } from '@tarojs/components'
 import Taro, { useDidShow, usePullDownRefresh, useReachBottom } from '@tarojs/taro'
 import { useCallback, useRef, useState } from 'react'
@@ -169,7 +171,7 @@ export default function NotificationsPage() {
     : t('notifications.markAllRead')
 
   return (
-    <View className="notifications-page">
+    <ThemeView className="notifications-page">
       <NavBar
         title={t('nav.notifications')}
         showBack
@@ -202,9 +204,7 @@ export default function NotificationsPage() {
       ) : null}
 
       {loading && items.length === 0 ? (
-        <View className="notifications-state">
-          <Text className="notifications-state-title">{t('common.loading')}</Text>
-        </View>
+        <Skeleton layout="notifications" />
       ) : null}
 
       {!loading && error && items.length === 0 ? (
@@ -258,10 +258,10 @@ export default function NotificationsPage() {
         </View>
       ) : null}
 
-      {loadingMore ? <Text className="notifications-list-state">{t('common.loading')}</Text> : null}
+      {loadingMore ? <Skeleton layout="notifications" count={1} /> : null}
       {!loading && items.length > 0 && items.length >= total ? (
         <Text className="notifications-list-state">{t('common.noMore')}</Text>
       ) : null}
-    </View>
+    </ThemeView>
   )
 }

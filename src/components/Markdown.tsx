@@ -1,3 +1,4 @@
+import { useDarkMode } from '@/hooks/useDarkMode'
 import { RichText } from '@tarojs/components'
 import { memo, useMemo } from 'react'
 import { markdownToHtml } from '@/utils/markdown'
@@ -17,6 +18,7 @@ export const Markdown = memo(function Markdown({
   content: string
   className?: string
 }) {
-  const html = useMemo(() => markdownToHtml(content), [content])
+  const dark = useDarkMode()
+  const html = useMemo(() => markdownToHtml(content, dark), [content, dark])
   return <RichText className={className} nodes={html} />
 })

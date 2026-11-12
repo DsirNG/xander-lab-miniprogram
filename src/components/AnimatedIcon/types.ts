@@ -56,4 +56,4 @@ export type IconDefinition = {
   nodes: IconNode[]
 }
 
-export type AnimatedIconName = 'chat' | 'calendar' | 'article' | 'user'
+export type AnimatedIconName = 'chat' | 'files' | 'article' | 'user'

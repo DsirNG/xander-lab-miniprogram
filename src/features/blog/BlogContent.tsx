@@ -1,14 +1,15 @@
+import { Skeleton } from '@/components/Skeleton'
 import { t, useLocale } from '@/i18n'
 import { Input, ScrollView, Text, View } from '@tarojs/components'
 import { ArticleCard } from '@/components/ArticleCard'
 import { Icon } from '@/components/Icon'
-import { NavBar } from '@/components/NavBar'
 import type { BlogController } from './useBlogController'
 
 export function BlogContent({ controller }: { controller: BlogController }) {
   useLocale()
   const {
     articles,
+    taxonomyLoading,
     categories,
     popularTags,
     category,
@@ -29,7 +30,6 @@ export function BlogContent({ controller }: { controller: BlogController }) {
 
   return (
     <View className="page blog-page">
-      <NavBar title={t('ui.blogs')} />
       <View className="inline-search">
         <Icon name="search" />
         <Input
@@ -53,35 +53,39 @@ export function BlogContent({ controller }: { controller: BlogController }) {
           </Text>
         ) : null}
       </View>
-      <ScrollView scrollX showScrollbar={false} className="chips">
-        <Text
-          className={`chip ${category === '' && tag === '' ? 'active' : ''}`}
-          onClick={selectAll}
-        >
-          {t('ui.all')}
-        </Text>
-        {categories.map(item => {
-          const value = item.code || item.name
-          return (
-            <Text
-              className={`chip ${category === value && !tag ? 'active' : ''}`}
-              key={item.id ?? item.name}
-              onClick={() => selectCategory(value)}
-            >
-              {item.name}
-            </Text>
-          )
-        })}
-        {popularTags.map(item => (
+      {taxonomyLoading && categories.length === 0 && popularTags.length === 0 ? (
+        <Skeleton layout="articleFilters" />
+      ) : (
+        <ScrollView scrollX showScrollbar={false} className="chips">
           <Text
-            className={`chip ${tag === item.name ? 'active' : ''}`}
-            key={item.name}
-            onClick={() => selectTag(item.name)}
+            className={`chip ${category === '' && tag === '' ? 'active' : ''}`}
+            onClick={selectAll}
           >
-            #{item.name}
+            {t('ui.all')}
           </Text>
-        ))}
-      </ScrollView>
+          {categories.map(item => {
+            const value = item.code || item.name
+            return (
+              <Text
+                className={`chip ${category === value && !tag ? 'active' : ''}`}
+                key={item.id ?? item.name}
+                onClick={() => selectCategory(value)}
+              >
+                {item.name}
+              </Text>
+            )
+          })}
+          {popularTags.map(item => (
+            <Text
+              className={`chip ${tag === item.name ? 'active' : ''}`}
+              key={item.name}
+              onClick={() => selectTag(item.name)}
+            >
+              #{item.name}
+            </Text>
+          ))}
+        </ScrollView>
+      )}
       {hasFilter ? (
         <View className="filter-bar">
           <Text className="filter-summary">
@@ -94,9 +98,7 @@ export function BlogContent({ controller }: { controller: BlogController }) {
           </Text>
         </View>
       ) : null}
-      {loading && articles.length === 0 ? (
-        <Text className="data-state">{t('ui.loadingArticles')}</Text>
-      ) : null}
+      {(loading || !loadedOnce) && articles.length === 0 ? <Skeleton layout="articles" /> : null}
       {loadedOnce && !loading && articles.length === 0 ? (
         <View className="empty-state">
           <Text className="empty-title">{t('ui.noMatchingArticles')}</Text>
@@ -111,9 +113,7 @@ export function BlogContent({ controller }: { controller: BlogController }) {
       {articles.map(article => (
         <ArticleCard key={article.id} article={article} />
       ))}
-      {loading && articles.length > 0 ? (
-        <Text className="data-state">{t('ui.loading')}</Text>
-      ) : null}
+      {loading && articles.length > 0 ? <Skeleton layout="articles" count={1} /> : null}
       {loadedOnce && !loading && articles.length > 0 && articles.length >= total ? (
         <Text className="data-state">{t('ui.allArticlesShown')}</Text>
       ) : null}

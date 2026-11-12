@@ -232,31 +232,6 @@ function clampProgress(progress: number) {
   return Math.max(0, Math.min(1, progress))
 }
 
-function clipDiagonalReveal(
-  context: CanvasContextLike,
-  width: number,
-  height: number,
-  progress: number,
-) {
-  const threshold = clampProgress(progress) * 2
-  context.beginPath()
-
-  if (threshold <= 1) {
-    context.moveTo(0, 0)
-    context.lineTo(width * threshold, 0)
-    context.lineTo(0, height * threshold)
-  } else {
-    context.moveTo(0, 0)
-    context.lineTo(width, 0)
-    context.lineTo(width, height * (threshold - 1))
-    context.lineTo(width * (threshold - 1), height)
-    context.lineTo(0, height)
-  }
-
-  context.closePath()
-  context.clip?.()
-}
-
 function drawNode(context: CanvasContextLike, node: IconNode, progress: number) {
   if (node.role === 'draw' && progress <= 0) return
 
@@ -336,23 +311,10 @@ export function drawIcon(
   context.globalAlpha = 1
   if (clampedProgress <= 0) return
 
-  // Reveal the active stroke diagonally from the top-left to the bottom-right
-  // over the full 0 -> 1 range.
-  context.strokeStyle = activeColor
-  context.globalAlpha = 1
-
   // Treat the whole icon as one 0 → 1 drawing timeline. Each draw node gets
   // only its portion of that timeline, so the stroke progresses in path order
   // instead of every line starting at zero at the same time.
   const drawNodes = definition.nodes.filter(node => node.role === 'draw')
-  if (context.save && context.restore && context.clip) {
-    context.save()
-    clipDiagonalReveal(context, definition.width, definition.height, clampedProgress)
-    drawNodes.forEach(node => drawNode(context, node, 1))
-    context.restore()
-    context.globalAlpha = 1
-    return
-  }
   const totalLength = drawNodes.reduce((total, node) => total + getNodeLength(node), 0)
   let offset = 0
 

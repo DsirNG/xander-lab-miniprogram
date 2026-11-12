@@ -1,0 +1,78 @@
+.orders-page {
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-canvas);
+  color: var(--color-ink);
+}
+.orders-content {
+  padding: 0 20px 16px;
+}
+.orders-policy {
+  display: block;
+  color: var(--color-ink-muted);
+  font-size: 10px;
+  line-height: 1.7;
+  margin-bottom: 10px;
+}
+.orders-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.order-card {
+  padding: 20px 0;
+  border-bottom: 1px solid var(--color-divider);
+}
+.order-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+.order-status {
+  color: var(--color-ink-muted);
+  font-size: 12px;
+  font-weight: 400;
+  text-align: right;
+}
+.order-field {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  font-size: 12px;
+  line-height: 1.7;
+  margin-top: 8px;
+  color: var(--color-ink-muted);
+}
+.order-field-value {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  text-align: right;
+}
+.order-amount {
+  font-size: 16px;
+  color: var(--color-ink);
+  font-variant-numeric: tabular-nums;
+}
+.order-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 12px;
+  align-items: center;
+}
+
+.orders-page > view { flex-shrink: 0; }
+.orders-scroll { flex: 1; height: 0; min-height: 0; }
+.orders-footer { flex-shrink: 0; padding: 10px 20px calc(12px + env(safe-area-inset-bottom)); border-top: 1px solid var(--color-divider); }
+.orders-footer .orders-policy { margin: 0; line-height: 1.6; }
+.order-countdown { margin-right: auto; font-size: 11px; color: var(--color-ink-muted); font-variant-numeric: tabular-nums; }
+.order-status { padding: 3px 7px; border-radius: 6px; background: var(--color-surface-muted); white-space: nowrap; }
+.order-status--pending { color: var(--color-ink); font-weight: 500; }
+.order-status--delivered, .order-status--succeeded, .order-status--refunded { color: var(--color-ink-secondary); }
+.order-status--expired { opacity: 0.65; }

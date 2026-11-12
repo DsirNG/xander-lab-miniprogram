@@ -1,0 +1,12 @@
+<wxs module="gesture" src="./gesture.wxs" />
+<view class="native-drawer-host"
+  bindtouchstart="{{gesture.start}}" bindtouchmove="{{gesture.move}}"
+  bindtouchend="{{gesture.end}}" bindtouchcancel="{{gesture.cancel}}">
+  <view class="native-drawer-sidebar" style="width:{{travel}}px" motion="{{motion}}" change:motion="{{gesture.configureSidebar}}">
+    <slot name="sidebar" />
+  </view>
+  <view class="native-drawer-foreground" motion="{{motion}}" change:motion="{{gesture.configure}}">
+    <view class="native-drawer-content"><slot name="content" /></view>
+    <view class="native-drawer-navigation"><slot name="navigation" /></view>
+  </view>
+</view>

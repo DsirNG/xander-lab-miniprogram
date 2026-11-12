@@ -1,10 +1,10 @@
+import { ensureLogin } from '@/store/user'
 import { create } from 'zustand'
 import Taro from '@tarojs/taro'
 import type { TabKey } from '@/utils/tabBarRoute'
 
 type TabBarState = {
   active: TabKey
-  mainTab: Exclude<TabKey, 'chat'>
   setActive: (active: TabKey) => void
   refreshVersions: Record<TabKey, number>
   refreshTab: (tab: TabKey) => void
@@ -14,11 +14,10 @@ type TabBarState = {
 
 export const useTabBarStore = create<TabBarState>(set => ({
   active: 'chat',
-  mainTab: 'calendar',
-  setActive: active => set(active === 'chat' ? { active } : { active, mainTab: active }),
+  setActive: active => set({ active }),
   refreshVersions: {
     chat: 0,
-    calendar: 0,
+    files: 0,
     article: 0,
     user: 0,
   },
@@ -35,14 +34,9 @@ export const useTabBarStore = create<TabBarState>(set => ({
   setPendingBlogTag: pendingBlogTag => set({ pendingBlogTag }),
 }))
 
-export function exitChat() {
-  const { mainTab, setActive } = useTabBarStore.getState()
-  setActive(mainTab)
-  void Taro.hideKeyboard().catch(() => undefined)
-}
-
 /** Centralized top-level navigation action used by the TabBar and in-panel shortcuts. */
 export function navigateToTab(tab: TabKey, vibration: 'light' | 'medium' | 'heavy' = 'light') {
+  if (tab === 'user' && !ensureLogin(() => navigateToTab(tab, vibration))) return false
   const state = useTabBarStore.getState()
   if (state.active === tab) {
     // Refresh the active panel without changing the selected indicator.

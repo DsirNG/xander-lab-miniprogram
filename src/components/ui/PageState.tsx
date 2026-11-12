@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import { View } from '@tarojs/components'
 import './PageState.scss'
 
-export type PageStateKind = 'empty' | 'loading' | 'error'
+export type PageStateKind = 'empty' | 'error'
 
 export interface PageStateProps {
   kind?: PageStateKind
@@ -23,13 +23,7 @@ export function PageState({
 }: PageStateProps) {
   return (
     <View className={`ui-page-state ui-page-state--${kind} ${className}`.trim()}>
-      {kind === 'loading' ? (
-        <View className="ui-page-state-dots">
-          <View />
-          <View />
-          <View />
-        </View>
-      ) : null}
+
       {icon ? <View className="ui-page-state-icon">{icon}</View> : null}
       {title ? <View className="ui-page-state-title">{title}</View> : null}
       {description ? <View className="ui-page-state-description">{description}</View> : null}

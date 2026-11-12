@@ -1,12 +1,15 @@
-import {
-  Button,
-  Image,
-  ScrollView,
-  Text,
-  View,
-  type CommonEventFunction,
-  type ITouchEvent,
-} from '@tarojs/components'
+import { showThemedActionSheet } from '@/utils/actionSheet'
+import { NativeChatDrawer } from '@/components/NativeChatDrawer'
+import { ChatKeyboardClearance } from '@/components/ChatKeyboardClearance'
+import { useChatKeyboard } from '@/store/chatKeyboard'
+import { ChatImage as GeneratedImage } from '@/pages/chat/components/ChatImage'
+import { loadChatImage } from '@/utils/chatImageCache'
+import { DrawerMotionView } from '@/components/DrawerMotionView'
+import { useDrawerGesture } from '@/hooks/useDrawerGesture'
+import { useDrawerDrag } from '@/store/drawerDrag'
+import { Skeleton } from '@/components/Skeleton'
+import { getSessionVersion, privateCacheKeys, writePrivateCache } from '@/utils/privateCache'
+import { Image, ScrollView, Text, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
@@ -16,21 +19,23 @@ import {
   type AgentAttachment,
   type ConversationSnapshot,
 } from '@/api/agent'
-import { connectAgentStream } from '@/api/agentSocket'
+import type { AgentStreamEvent } from '@/api/agentSocket'
+import { connectAgentReplay } from '@/api/agentReplay'
+import { createStreamWatchdog } from '@/api/streamWatchdog'
 import { API_ORIGIN, tokenStorage } from '@/api/http'
 import { Markdown } from '@/components/Markdown'
 import { NavBar } from '@/components/NavBar'
 import { Icon } from '@/components/Icon'
-import { useNavbarLayout } from '@/hooks/useNavbarLayout'
-import { exitChat } from '@/store/tabBar'
 import { usePanelActive } from '@/hooks/usePanelActive'
 import { ensureLogin, useUserStore } from '@/store/user'
 import { truncate } from '@/utils/markdown'
 import { t, useLocale } from '@/i18n'
-import { ChatComposer } from '@/pages/chat/components/ChatComposer'
+import { ChatComposer, type ComposerAttachmentItem } from '@/pages/chat/components/ChatComposer'
 import { ChatDrawer } from '@/pages/chat/components/ChatDrawer'
 import {
   absoluteMediaUrl,
+  splitImageAnswer,
+  sameImageResource,
   IMAGE_TOOL,
   isImageTool,
   parseImageToolResult as parseImageToolResultPayload,
@@ -38,7 +43,7 @@ import {
 } from '@/pages/chat/imageMessage'
 import './ChatContent.scss'
 
-const ACTIVE_KEY = 'chat_active_id'
+const ACTIVE_KEY = privateCacheKeys.activeChat
 
 /**
  * 流式回答的合并提交间隔（毫秒）。这是"用户看到下一段文字"的节奏上限：
@@ -84,13 +89,19 @@ const EMPTY_MESSAGES: AgentMessage[] = []
 type StreamToolState = {
   name: string
   message: string
+  progress?: number
+  estimated?: boolean
+  saving?: boolean
 }
 
-type GeneratedImageResult = ImageToolResult
+type GeneratedImageResult = ImageToolResult & { preview?: boolean }
 
 type ToolEventData = {
   tool?: string
   message?: string
+  progress?: number
+  estimated?: boolean
+  stage?: string
   result?: { url?: string; title?: string }
 }
 
@@ -143,29 +154,73 @@ function showToast(title: string) {
   Taro.showToast({ title, icon: 'none' })
 }
 
+export type ChatDrawerPhase = 'closed' | 'open' | 'closing'
+
 type ChatContentProps = {
   panelActive: boolean
+  onDrawerPhaseChange: (phase: ChatDrawerPhase) => void
   refreshVersion?: number
 }
 
-export function ChatContent({ panelActive, refreshVersion = 0 }: ChatContentProps) {
+export function ChatContent({
+  panelActive,
+  refreshVersion = 0,
+  onDrawerPhaseChange,
+}: ChatContentProps) {
   useLocale()
-  const { navBarHeight } = useNavbarLayout()
   const user = useUserStore(state => state.user)
+  const userLoaded = useUserStore(state => state.loaded)
   const refreshUser = useUserStore(state => state.refresh)
 
+  const [loadingConversations, setLoadingConversations] = useState(() =>
+    Boolean(tokenStorage.getAccessToken()),
+  )
+  const [loadingConversation, setLoadingConversation] = useState(() =>
+    Boolean(tokenStorage.getAccessToken() && Taro.getStorageSync<number>(ACTIVE_KEY)),
+  )
   const [conversations, setConversations] = useState<AgentConversation[]>([])
   const [active, setActive] = useState<ConversationSnapshot | null>(null)
-  const [input, setInput] = useState('')
-  const [attachments, setAttachments] = useState<AgentAttachment[]>([])
+  const [composerDraft, setComposerDraft] = useState({ value: '', revision: 0 })
+  const replaceComposerDraft = (value: string) => {
+    inputRef.current = value
+    setComposerDraft(previous => ({ value, revision: previous.revision + 1 }))
+  }
+  const inputRef = useRef('')
+  const [attachments, setAttachments] = useState<ComposerAttachmentItem[]>([])
   const [uploadingAttachments, setUploadingAttachments] = useState(false)
   const [running, setRunning] = useState(false)
   const [creating, setCreating] = useState(false)
   const [thoughtOpen, setThoughtOpen] = useState<Record<number, boolean>>({})
   const [scrollTarget, setScrollTarget] = useState('')
-  const [drawerPhase, setDrawerPhase] = useState<'closed' | 'open' | 'closing'>('closed')
+  const [drawerPhase, setDrawerPhase] = useState<ChatDrawerPhase>('closed')
+  const updateDrawerPhase = useCallback(
+    (phase: ChatDrawerPhase) => {
+      drawerPhaseRef.current = phase
+      setDrawerPhase(phase)
+      onDrawerPhaseChange(phase)
+    },
+    [onDrawerPhaseChange],
+  )
   const drawerPhaseRef = useRef(drawerPhase)
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const updateKeyboardInset = useCallback(
+    (height: number) => {
+      if (panelActive && process.env.TARO_ENV === 'weapp') {
+        useChatKeyboard.getState().setHeight(Number.isFinite(height) ? Math.max(0, height) : 0)
+      }
+    },
+    [panelActive],
+  )
+  useEffect(() => {
+    if (!panelActive || process.env.TARO_ENV !== 'weapp') {
+      useChatKeyboard.getState().setHeight(0)
+      return
+    }
+    const onHeight = ({ height }: { height: number }) => updateKeyboardInset(height)
+    Taro.onKeyboardHeightChange?.(onHeight)
+    return () => Taro.offKeyboardHeightChange?.(onHeight)
+  }, [panelActive, updateKeyboardInset])
 
   // 主面板左缘圆角对齐屏幕物理圆角：取窗口安全区顶部高度注入 CSS 变量。
   const shellStyle = useMemo(() => {
@@ -180,7 +235,6 @@ export function ChatContent({ panelActive, refreshVersion = 0 }: ChatContentProp
     }
     return {
       '--chat-shell-top-radius': `${topRadius || 24}px`,
-      '--chat-shell-bottom-radius': `${Math.min(topRadius || 24, 34)}px`,
     } as any
   }, [])
 
@@ -194,52 +248,58 @@ export function ChatContent({ panelActive, refreshVersion = 0 }: ChatContentProp
       clearTimeout(closeTimerRef.current)
       closeTimerRef.current = null
     }
-    setDrawerPhase('open')
-  }, [])
+    updateDrawerPhase('open')
+  }, [updateDrawerPhase])
 
   const closeDrawer = useCallback(() => {
     if (drawerPhaseRef.current !== 'open') return
     if (closeTimerRef.current) return
-    setDrawerPhase('closing')
+    updateDrawerPhase('closing')
     closeTimerRef.current = setTimeout(() => {
-      setDrawerPhase('closed')
+      updateDrawerPhase('closed')
       closeTimerRef.current = null
-    }, 420)
-  }, [])
+    }, 320)
+  }, [updateDrawerPhase])
 
-  // 左右滑动手势：右滑打开抽屉，左滑关闭。水平位移占优且超过阈值才算。
-  const touchStartRef = useRef<{ x: number; y: number } | null>(null)
-  const SWIPE_THRESHOLD = 60
+  useEffect(() => {
+    if (panelActive) return
+    if (closeTimerRef.current) {
+      clearTimeout(closeTimerRef.current)
+      closeTimerRef.current = null
+    }
+    updateDrawerPhase('closed')
+  }, [panelActive, updateDrawerPhase])
 
-  const onShellTouchStart: CommonEventFunction = useCallback(e => {
-    const touch = (e as ITouchEvent).touches[0]
-    if (!touch) return
-    touchStartRef.current = { x: touch.clientX, y: touch.clientY }
-  }, [])
+  const isNativeDrawer = process.env.TARO_ENV === 'weapp'
+  const nativeSuppressUntil = useRef(0)
+  const fallbackDrawerGesture = useDrawerGesture({
+    phase: () => drawerPhaseRef.current,
+    enabled: () => !isNativeDrawer && panelActive && useChatKeyboard.getState().height === 0,
+    reveal: openDrawer,
+    settle: open => (open ? openDrawer() : closeDrawer()),
+  })
 
-  const onShellTouchEnd: CommonEventFunction = useCallback(
-    e => {
-      const start = touchStartRef.current
-      touchStartRef.current = null
-      if (!start) return
-      const end = (e as ITouchEvent).changedTouches[0]
-      if (!end) return
-      const dx = end.clientX - start.x
-      const dy = end.clientY - start.y
-      if (Math.abs(dx) < SWIPE_THRESHOLD || Math.abs(dx) <= Math.abs(dy) * 1.2) return
-      if (dx > 0) {
-        openDrawer()
-      } else {
-        if (drawerPhaseRef.current === 'closed') exitChat()
-        else closeDrawer()
+  const drawerGesture = isNativeDrawer
+    ? {
+        onTouchStart: () => undefined,
+        onTouchMove: () => undefined,
+        onTouchEnd: () => undefined,
+        onTouchCancel: () => undefined,
+        suppressClick: () => Date.now() < nativeSuppressUntil.current,
       }
-    },
-    [openDrawer, closeDrawer],
-  )
+    : fallbackDrawerGesture
+
+  useEffect(() => {
+    if (!panelActive) useDrawerDrag.getState().setOffset(null)
+    return () => {
+      useDrawerDrag.getState().setOffset(null)
+    }
+  }, [panelActive])
 
   const activeIdRef = useRef<number | null>(null)
   const closeStreamRef = useRef<(() => void) | null>(null)
   const streamRunRef = useRef<number | null>(null)
+  const cancelStreamRef = useRef<(() => Promise<void>) | null>(null)
   const resumeRequestRef = useRef(0)
   const [streamAnswer, setStreamAnswer] = useState('')
   const [streamThought, setStreamThought] = useState('')
@@ -252,6 +312,7 @@ export function ChatContent({ panelActive, refreshVersion = 0 }: ChatContentProp
   // 这里先在 ref 里累积，由下面的定时器按固定间隔统一提交，
   // 把渲染次数从"token 数"压到"时间窗数"，文本本身不丢不乱序。
   const answerBufferRef = useRef('')
+  const answerStartedRef = useRef(false)
   const answerFlushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const flushAnswerBuffer = useCallback(() => {
@@ -292,6 +353,7 @@ export function ChatContent({ panelActive, refreshVersion = 0 }: ChatContentProp
   }, [])
 
   const closeStream = () => {
+    cancelStreamRef.current = null
     streamRunRef.current = null
     closeStreamRef.current?.()
     closeStreamRef.current = null
@@ -304,6 +366,7 @@ export function ChatContent({ panelActive, refreshVersion = 0 }: ChatContentProp
       answerFlushTimerRef.current = null
     }
     answerBufferRef.current = ''
+    answerStartedRef.current = false
     setStreamAnswer('')
     setStreamThought('')
     setStreamTool(null)
@@ -314,6 +377,17 @@ export function ChatContent({ panelActive, refreshVersion = 0 }: ChatContentProp
     try {
       const snapshot = await agentApi.getConversation(id)
       if (activeIdRef.current !== id || streamRunRef.current !== runVersion) return
+      if (snapshot.conversation.status !== 'running') {
+        const images = snapshot.messages.slice(-6).flatMap(message => {
+          const image = parseImageToolResult(message)
+          if (image) return [image.url]
+          return splitImageAnswer(message.content || '').flatMap(part =>
+            part.type === 'image' ? [part.url] : [],
+          )
+        })
+        await Promise.allSettled([...new Set(images)].map(url => loadChatImage(url)))
+        if (activeIdRef.current !== id || streamRunRef.current !== runVersion) return
+      }
       setActive(snapshot)
       setRunning(snapshot.conversation.status === 'running')
       if (snapshot.conversation.status === 'running' && snapshot.conversation.runVersion) {
@@ -334,58 +408,190 @@ export function ChatContent({ panelActive, refreshVersion = 0 }: ChatContentProp
     }
   }
 
+  const handleStreamEvent = (id: number, runVersion: number, ev: AgentStreamEvent) => {
+    if (activeIdRef.current !== id || streamRunRef.current !== runVersion) return
+
+    if (ev.event === 'answer_delta') {
+      // 累积到缓冲里，由定时器统一提交；不再每个 token 触发一次渲染。
+      const delta = String(ev.data ?? '')
+      if (!answerStartedRef.current) {
+        answerStartedRef.current = true
+        setStreamAnswer(delta)
+      } else {
+        answerBufferRef.current += delta
+        scheduleAnswerFlush()
+      }
+    } else if (ev.event === 'answer') {
+      // 全量正文到达：丢弃缓冲（它必然包含在正文里），避免重复拼接。
+      if (answerFlushTimerRef.current) {
+        clearTimeout(answerFlushTimerRef.current)
+        answerFlushTimerRef.current = null
+      }
+      answerBufferRef.current = ''
+      answerStartedRef.current = true
+      setStreamAnswer(String(ev.data ?? ''))
+    } else if (ev.event === 'thought') {
+      setStreamThought(String(ev.data ?? ''))
+    } else if (ev.event === 'tool_start') {
+      const data = ev.data as ToolEventData | undefined
+      const name = String(data?.tool ?? t('ui.internalTool'))
+      setStreamTool({ name, message: '', ...(isImageTool(name) ? { progress: 0 } : {}) })
+      if (isImageTool(name)) setStreamImageResult(null)
+    } else if (ev.event === 'tool_progress') {
+      const data = ev.data as ToolEventData | undefined
+      setStreamTool(previous => ({
+        name: String(data?.tool ?? previous?.name ?? t('ui.internalTool')),
+        message: String(data?.message ?? previous?.message ?? ''),
+        progress:
+          typeof data?.progress === 'number' && Number.isFinite(data.progress)
+            ? Math.max(previous?.progress ?? 0, Math.min(100, Math.round(data.progress)))
+            : previous?.progress,
+        estimated: data?.estimated ?? previous?.estimated,
+        saving: previous?.saving || data?.stage === 'generated',
+      }))
+    } else if (ev.event === 'image_preview') {
+      const data = ev.data as ToolEventData | undefined
+      const url = data?.result?.url
+      if (
+        isImageTool(data?.tool) &&
+        typeof url === 'string' &&
+        /^data:image\/(?:png|jpeg|webp|gif);base64,/.test(url)
+      ) {
+        console.info('[Image] Preview received', { encodedLength: url.length })
+        setStreamImageResult({ url, title: data?.result?.title, preview: true })
+        setStreamTool(previous => (previous ? { ...previous, saving: true } : null))
+      }
+    } else if (ev.event === 'tool_end' || ev.event === 'tool_result') {
+      const data = ev.data as ToolEventData | undefined
+      const result = data?.result
+      if (isImageTool(data?.tool) && result?.url) {
+        setStreamImageResult({
+          url: absoluteMediaUrl(result.url, API_ORIGIN),
+          title: result.title,
+        })
+      }
+      setStreamTool(null)
+    } else if (ev.event === 'tool_error') {
+      setStreamTool(null)
+      setStreamImageResult(previous => (previous?.preview ? null : previous))
+    } else if (
+      ev.event === 'complete' ||
+      ev.event === 'error' ||
+      ev.event === 'approval_required'
+    ) {
+      // 终态到达前把缓冲里的正文补上，避免最后一小段文字只存在于缓冲里。
+      flushAnswerBuffer()
+      setRunning(false)
+      setStreamTool(null)
+      void applyTerminalSnapshot(id, runVersion)
+    }
+  }
+
   const openStream = (id: number, runVersion: number) => {
     closeStream()
     clearStreamState()
     streamRunRef.current = runVersion
-    // WS 推全量 thought / 增量 answer_delta；终态到达后只读取一次持久化快照。
-    const close = connectAgentStream(id, runVersion, {
-      onEvent: ev => {
-        if (ev.event === 'answer_delta') {
-          // 累积到缓冲里，由定时器统一提交；不再每个 token 触发一次渲染。
-          answerBufferRef.current += String(ev.data ?? '')
-          scheduleAnswerFlush()
-        } else if (ev.event === 'answer') {
-          // 全量正文到达：丢弃缓冲（它必然包含在正文里），避免重复拼接。
-          if (answerFlushTimerRef.current) {
-            clearTimeout(answerFlushTimerRef.current)
-            answerFlushTimerRef.current = null
+    closeStreamRef.current = connectAgentReplay(id, runVersion, {
+      onEvent: ev => handleStreamEvent(id, runVersion, ev),
+    })
+  }
+
+  const startMessageStream = (
+    id: number,
+    content: string,
+    selectedAttachments: AgentAttachment[],
+  ) => {
+    closeStream()
+    clearStreamState()
+    let version = 0
+    let terminal = false
+    let cancellationRequested = false
+    cancelStreamRef.current = async () => {
+      // A click before the acknowledgement must not cancel the previous ready turn.
+      if (!version) {
+        cancellationRequested = true
+        return
+      }
+      await agentApi.cancel(id)
+    }
+    let attached = true
+    // Keep the originating HTTP stream alive until the turn ends. Switching tabs
+    // detaches this view; it must not cut off the Worker's active execution request.
+    const close = () => {
+      attached = false
+      watchdog.stop()
+    }
+    const isCurrent = () =>
+      attached && activeIdRef.current === id && closeStreamRef.current === close
+    closeStreamRef.current = close
+    let recovering = false
+    const recover = async (error?: unknown) => {
+      if (!isCurrent() || recovering) return
+      recovering = true
+      watchdog.stop()
+      flushAnswerBuffer()
+      try {
+        // The POST may already be committed. Reconcile once and subscribe; never resend it.
+        const snapshot = await agentApi.getConversation(id)
+        if (!isCurrent()) return
+        setActive(snapshot)
+        if (snapshot.conversation.status === 'running' && snapshot.conversation.runVersion) {
+          setRunning(true)
+          openStream(id, snapshot.conversation.runVersion)
+        } else {
+          closeStream()
+          clearStreamState()
+          setRunning(false)
+          if (snapshot.conversation.status === 'failed' || !version) {
+            showToast(
+              snapshot.conversation.errorMessage ||
+                (error instanceof Error ? error.message : t('ui.messageCouldNotBeSent')),
+            )
           }
-          answerBufferRef.current = ''
-          setStreamAnswer(String(ev.data ?? ''))
-        } else if (ev.event === 'thought') {
-          setStreamThought(String(ev.data ?? ''))
-        } else if (ev.event === 'tool_start') {
-          const data = ev.data as ToolEventData | undefined
-          const name = String(data?.tool ?? t('ui.internalTool'))
-          setStreamTool({ name, message: '' })
-          if (isImageTool(name)) setStreamImageResult(null)
-        } else if (ev.event === 'tool_progress') {
-          const data = ev.data as ToolEventData | undefined
-          setStreamTool(previous => ({
-            name: String(data?.tool ?? previous?.name ?? t('ui.internalTool')),
-            message: String(data?.message ?? previous?.message ?? ''),
-          }))
-        } else if (ev.event === 'tool_end') {
-          const data = ev.data as ToolEventData | undefined
-          const result = data?.result
-          if (isImageTool(data?.tool) && result?.url) {
-            setStreamImageResult({
-              url: absoluteMediaUrl(result.url, API_ORIGIN),
-              title: result.title,
+        }
+      } catch (failure) {
+        if (!isCurrent()) return
+        closeStream()
+        setRunning(false)
+        showToast(failure instanceof Error ? failure.message : t('ui.unableToSyncConversation'))
+      }
+    }
+    const watchdog = createStreamWatchdog(() => {
+      void recover()
+    })
+    const request = agentApi.sendMessageStream(id, content, selectedAttachments, ev => {
+      if (isCurrent() && !recovering) watchdog.touch()
+      if (ev.event === 'accepted' || ev.event === 'started') {
+        const next = Number((ev.data as { runVersion?: number } | undefined)?.runVersion)
+        if (Number.isSafeInteger(next) && next > 0) {
+          version = next
+          if (isCurrent()) streamRunRef.current = next
+          if (cancellationRequested) {
+            cancellationRequested = false
+            void agentApi.cancel(id).catch(error => {
+              if (isCurrent())
+                showToast(error instanceof Error ? error.message : t('ui.unableToCancel'))
             })
           }
-          setStreamTool(null)
-        } else if (ev.event === 'tool_error') {
-          setStreamTool(null)
-        } else if (ev.event === 'complete' || ev.event === 'error') {
-          // 终态到达前把缓冲里的正文补上，避免最后一小段文字只存在于缓冲里。
-          flushAnswerBuffer()
-          void applyTerminalSnapshot(id, runVersion)
         }
-      },
+      }
+      if (!isCurrent()) return
+      if (ev.event === 'complete' || ev.event === 'error' || ev.event === 'approval_required') {
+        terminal = true
+        watchdog.stop()
+      }
+      if (version) handleStreamEvent(id, version, ev)
     })
-    closeStreamRef.current = close
+    void request.done.then(
+      () => {
+        watchdog.stop()
+        if (!terminal) return recover()
+      },
+      error => {
+        watchdog.stop()
+        return recover(error)
+      },
+    )
   }
 
   /**
@@ -394,8 +600,12 @@ export function ChatContent({ panelActive, refreshVersion = 0 }: ChatContentProp
    */
   const resumeActive = useCallback(() => {
     const savedId = activeIdRef.current ?? Taro.getStorageSync<number>(ACTIVE_KEY)
-    if (!savedId) return Promise.resolve()
+    if (!savedId || !tokenStorage.getAccessToken()) {
+      setLoadingConversation(false)
+      return Promise.resolve()
+    }
     const requestId = ++resumeRequestRef.current
+    if (activeIdRef.current == null) setLoadingConversation(true)
     console.log('[ChatContent] RESUME_START', { requestId, savedId })
     return agentApi
       .getConversation(savedId)
@@ -422,10 +632,14 @@ export function ChatContent({ panelActive, refreshVersion = 0 }: ChatContentProp
         }
       })
       .catch(() => undefined)
+      .finally(() => {
+        if (requestId === resumeRequestRef.current) setLoadingConversation(false)
+      })
   }, [])
 
   useEffect(() => {
     return () => {
+      resumeRequestRef.current += 1
       closeStream()
       // 卸载时清掉未提交的缓冲计时器，避免组件已销毁后仍触发 setState。
       if (answerFlushTimerRef.current) {
@@ -436,11 +650,37 @@ export function ChatContent({ panelActive, refreshVersion = 0 }: ChatContentProp
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const loadConversations = useCallback(async () => {
+  const [hasMoreConversations, setHasMoreConversations] = useState(false)
+  const conversationListRef = useRef({ page: 0, search: '', request: 0, loading: false })
+  const loadConversations = useCallback(async (search = '', append = false) => {
     if (!tokenStorage.getAccessToken()) return
     try {
-      const list = await agentApi.listConversations()
-      setConversations(list)
+      const state = conversationListRef.current
+      if (append && state.loading) return
+      const requestId = ++state.request
+      state.search = search
+      const page = append ? state.page + 1 : 1
+      state.loading = true
+      setLoadingConversations(true)
+      try {
+        const result = await agentApi.listConversationPage(page, search)
+        if (requestId !== state.request) return
+        state.page = page
+        setConversations(previous =>
+          append
+            ? [
+                ...previous,
+                ...result.items.filter(item => !previous.some(old => old.id === item.id)),
+              ]
+            : result.items,
+        )
+        setHasMoreConversations(result.hasMore)
+      } finally {
+        if (requestId === state.request) {
+          state.loading = false
+          setLoadingConversations(false)
+        }
+      }
     } catch (e) {
       showToast(e instanceof Error ? e.message : t('ui.unableToLoadConversations'))
     }
@@ -491,18 +731,29 @@ export function ChatContent({ panelActive, refreshVersion = 0 }: ChatContentProp
     running,
     streamAnswer.length,
     streamThought.length,
-    streamTool,
+    Boolean(streamTool),
     streamImageResult?.url,
   ])
 
   const openConversation = async (id: number) => {
-    resumeRequestRef.current += 1
+    const session = getSessionVersion()
+    const requestId = ++resumeRequestRef.current
+    setLoadingConversation(true)
     try {
       const snapshot = await agentApi.getConversation(id)
+      if (session !== getSessionVersion() || requestId !== resumeRequestRef.current) return
       closeStream()
       activeIdRef.current = id
-      Taro.setStorageSync(ACTIVE_KEY, id)
+      writePrivateCache(ACTIVE_KEY, id, session)
       setActive(snapshot)
+      void agentApi
+        .markRead(id)
+        .then(updated => {
+          setConversations(previous =>
+            previous.map(item => (item.id === id ? { ...item, ...updated } : item)),
+          )
+        })
+        .catch(() => undefined)
       clearStreamState()
       setRunning(snapshot.conversation.status === 'running')
       if (snapshot.conversation.status === 'running') {
@@ -510,17 +761,21 @@ export function ChatContent({ panelActive, refreshVersion = 0 }: ChatContentProp
         if (snapshot.conversation.runVersion) openStream(id, snapshot.conversation.runVersion)
       }
     } catch (e) {
-      showToast(e instanceof Error ? e.message : t('ui.unableToLoadConversation'))
+      if (requestId === resumeRequestRef.current)
+        showToast(e instanceof Error ? e.message : t('ui.unableToLoadConversation'))
+    } finally {
+      if (requestId === resumeRequestRef.current) setLoadingConversation(false)
     }
   }
 
   const startNewChat = () => {
     resumeRequestRef.current += 1
+    setLoadingConversation(false)
     closeStream()
     activeIdRef.current = null
     setActive(null)
     setRunning(false)
-    setInput('')
+    replaceComposerDraft('')
     setAttachments([])
     setScrollTarget('')
     setStreamAnswer('')
@@ -531,6 +786,10 @@ export function ChatContent({ panelActive, refreshVersion = 0 }: ChatContentProp
     closeDrawer()
   }
 
+  const handleComposerChange = useCallback((value: string) => {
+    inputRef.current = value
+  }, [])
+
   const handleAddAttachment = async () => {
     if (running || creating || uploadingAttachments) return
     const remaining = 5 - attachments.length
@@ -539,35 +798,73 @@ export function ChatContent({ panelActive, refreshVersion = 0 }: ChatContentProp
       return
     }
     try {
-      const action = await Taro.showActionSheet({
+      const action = await showThemedActionSheet({
         itemList: [t('chat.chooseImage'), t('chat.chooseFile')],
       })
-      let selected: Array<{ path: string; size: number }> = []
+      let selected: Array<{ path: string; size: number; name?: string; type?: string }> = []
       if (action.tapIndex === 0) {
         const result = await Taro.chooseImage({
           count: remaining,
           sizeType: ['compressed', 'original'],
         })
-        selected = result.tempFiles.map(file => ({ path: file.path, size: file.size }))
+        selected = result.tempFiles.map((file, idx) => ({
+          path: file.path,
+          size: file.size,
+          name: `image_${Date.now()}_${idx + 1}.jpg`,
+          type: 'image/jpeg',
+        }))
       } else {
         const result = await Taro.chooseMessageFile({ count: remaining, type: 'file' })
-        selected = result.tempFiles.map(file => ({ path: file.path, size: file.size }))
+        selected = result.tempFiles.map(file => ({
+          path: file.path,
+          size: file.size,
+          name: file.name,
+          type: file.type === 'image' ? 'image/jpeg' : 'application/octet-stream',
+        }))
       }
       const valid = selected.filter(file => file.size <= 20 * 1024 * 1024)
       if (valid.length !== selected.length) showToast(t('chat.attachmentTooLarge'))
       if (!valid.length) return
+
+      // 1. 立即占位并显示本地预览和加载动画
+      const placeholderItems: ComposerAttachmentItem[] = valid.map((file, idx) => ({
+        id: `upload-${Date.now()}-${idx}-${Math.random().toString(36).slice(2, 7)}`,
+        url: file.path,
+        tempPath: file.path,
+        name: file.name || 'file',
+        contentType: file.type || 'image/jpeg',
+        size: file.size,
+        status: 'uploading',
+      }))
+
+      setAttachments(current => [...current, ...placeholderItems].slice(0, 5))
       setUploadingAttachments(true)
-      const settled = await Promise.allSettled(
-        valid.map(file => agentApi.uploadAttachment(file.path)),
+
+      // 2. 上传文件并替换对应占位项
+      await Promise.all(
+        placeholderItems.map(async item => {
+          try {
+            const uploaded = await agentApi.uploadAttachment(item.tempPath || item.url)
+            setAttachments(current =>
+              current.map(a =>
+                a.id === item.id
+                  ? {
+                      ...a,
+                      url: uploaded.url,
+                      name: uploaded.name || a.name,
+                      contentType: uploaded.contentType || a.contentType,
+                      size: uploaded.size || a.size,
+                      status: 'done',
+                    }
+                  : a,
+              ),
+            )
+          } catch {
+            setAttachments(current => current.filter(a => a.id !== item.id))
+            showToast(t('chat.attachmentUploadFailed'))
+          }
+        }),
       )
-      const uploaded = settled
-        .filter(
-          (item): item is PromiseFulfilledResult<AgentAttachment> => item.status === 'fulfilled',
-        )
-        .map(item => item.value)
-      if (uploaded.length) setAttachments(current => [...current, ...uploaded].slice(0, 5))
-      if (settled.some(item => item.status === 'rejected'))
-        showToast(t('chat.attachmentUploadFailed'))
     } catch (error) {
       const message = error instanceof Error ? error.message : ''
       if (message && !message.includes('cancel')) showToast(t('chat.attachmentUploadFailed'))
@@ -577,17 +874,21 @@ export function ChatContent({ panelActive, refreshVersion = 0 }: ChatContentProp
   }
 
   const handleSend = async (forcedContent?: string) => {
-    const selectedAttachments = attachments
-    const rawContent = (forcedContent ?? input).trim()
+    const selectedAttachments: AgentAttachment[] = attachments
+      .filter(item => item.status !== 'uploading' && item.status !== 'error')
+      .map(({ id, status, tempPath, ...agentAttachment }) => agentAttachment)
+    if (loadingConversation) return
+    const rawContent = (forcedContent ?? inputRef.current).trim()
     if ((!rawContent && !selectedAttachments.length) || running || creating || uploadingAttachments)
       return
     const content = rawContent || t('chat.analyzeAttachments')
     if (!ensureLogin()) return
+    const session = getSessionVersion()
     resumeRequestRef.current += 1
 
     const tempUser: AgentMessage = {
       id: -Date.now(),
-      conversationId: 0,
+      conversationId: active?.conversation.id ?? 0,
       role: 'user',
       kind: 'message',
       content,
@@ -595,48 +896,54 @@ export function ChatContent({ panelActive, refreshVersion = 0 }: ChatContentProp
       createdAt: new Date().toISOString(),
     }
 
+    replaceComposerDraft('')
+    setAttachments([])
+    setRunning(true)
+
     let targetId: number
     try {
-      setRunning(true)
-      if (!active) {
+      if (!active || active.conversation.id === 0) {
+        let createCancelled = false
+        cancelStreamRef.current = async () => {
+          createCancelled = true
+        }
         setCreating(true)
+        setActive({
+          conversation: {
+            id: 0,
+            userId: 0,
+            title: truncate(content, 24) || t('ui.agentConversation'),
+            status: 'running',
+            runVersion: 0,
+            createdAt: tempUser.createdAt,
+            updatedAt: tempUser.createdAt,
+          },
+          messages: [tempUser],
+        })
         const snapshot = await agentApi.createConversation(content)
+        if (session !== getSessionVersion()) return
         targetId = snapshot.conversation.id
         activeIdRef.current = targetId
-        Taro.setStorageSync(ACTIVE_KEY, targetId)
+        writePrivateCache(ACTIVE_KEY, targetId, session)
         setActive({
           conversation: snapshot.conversation,
-          messages: [...snapshot.messages, tempUser],
+          messages: [...snapshot.messages, { ...tempUser, conversationId: targetId }],
         })
         setCreating(false)
+        if (createCancelled) {
+          cancelStreamRef.current = null
+          setRunning(false)
+          return
+        }
       } else {
         targetId = active.conversation.id
         activeIdRef.current = targetId
         setActive(prev => (prev ? { ...prev, messages: [...prev.messages, tempUser] } : prev))
-        Taro.setStorageSync(ACTIVE_KEY, targetId)
+        writePrivateCache(ACTIVE_KEY, targetId, session)
       }
-      setInput('')
-      setAttachments([])
-      try {
-        const runVersion = await agentApi.sendMessage(targetId, content, selectedAttachments)
-        if (runVersion) openStream(targetId, runVersion)
-      } catch (e) {
-        const message = e instanceof Error ? e.message : ''
-        if (message.includes('timeout') || message.includes('超时')) {
-          // 请求可能已在服务端启动；读取一次快照拿到 runVersion 后续接 WS。
-          const snapshot = await agentApi.getConversation(targetId)
-          if (activeIdRef.current !== targetId) return
-          setActive(snapshot)
-          setRunning(snapshot.conversation.status === 'running')
-          if (snapshot.conversation.status === 'running' && snapshot.conversation.runVersion) {
-            openStream(targetId, snapshot.conversation.runVersion)
-          }
-        } else {
-          setRunning(false)
-          showToast(message || t('ui.messageCouldNotBeSent'))
-        }
-      }
+      startMessageStream(targetId, content, selectedAttachments)
     } catch (e) {
+      cancelStreamRef.current = null
       setCreating(false)
       setRunning(false)
       showToast(e instanceof Error ? e.message : t('ui.messageCouldNotBeSentTryAgain'))
@@ -644,240 +951,236 @@ export function ChatContent({ panelActive, refreshVersion = 0 }: ChatContentProp
   }
 
   const handleCancel = async () => {
-    if (!active) return
+    if (!active && !creating && !running) return
+    const currentCancel = cancelStreamRef.current
+    const currentId = activeIdRef.current ?? active?.conversation.id ?? 0
+    flushAnswerBuffer()
+    setCreating(false)
+    setRunning(false)
+    setStreamTool(null)
     try {
-      await agentApi.cancel(active.conversation.id)
+      if (currentCancel) {
+        await currentCancel()
+      } else if (currentId > 0) {
+        await agentApi.cancel(currentId)
+      }
       showToast(t('ui.stopRequested'))
     } catch (e) {
       showToast(e instanceof Error ? e.message : t('ui.unableToCancel'))
     }
   }
 
-  return (
-    <View className="chat-page">
-      <View
-        className={`chat-main-shell ${
-          drawerPhase === 'open'
-            ? 'is-drawer-open'
-            : drawerPhase === 'closing'
-              ? 'is-drawer-closing'
-              : ''
-        }`}
-        style={shellStyle}
-        onTouchStart={onShellTouchStart}
-        onTouchEnd={onShellTouchEnd}
-        onTouchCancel={() => {
-          touchStartRef.current = null
-        }}
-      >
-        <View className="chat-page-actions" style={{ top: navBarHeight }}>
-          <Button
-            className="chat-page-action"
-            ariaLabel={t('ui.leaveConversation')}
-            onClick={exitChat}
+  const chatSurface = (
+    <DrawerMotionView
+      className={`chat-main-shell ${
+        drawerPhase === 'open'
+          ? 'is-drawer-open'
+          : drawerPhase === 'closing'
+            ? 'is-drawer-closing'
+            : ''
+      }`}
+      style={shellStyle}
+      onTouchStart={drawerGesture.onTouchStart}
+      onTouchMove={drawerGesture.onTouchMove}
+      onTouchEnd={drawerGesture.onTouchEnd}
+      onTouchCancel={drawerGesture.onTouchCancel}
+    >
+      <NavBar
+        title={active ? active.conversation.title || t('ui.agentConversation') : 'DinQor'}
+        left={
+          <View
+            className="chat-history-trigger chat-history-trigger-left"
+            role="button"
+            ariaRole="button"
+            ariaLabel={CHAT_COPY.history}
+            onClick={() => openDrawer()}
           >
-            <Icon name="logout" />
-          </Button>
-          <Button
-            className="chat-page-action"
-            ariaLabel={t('ui.shareConversation')}
-            disabled={!active}
-            onClick={async () => {
-              if (!active) return
-              const result = await Taro.showActionSheet({
-                itemList: [t('ui.copyConversationToShare')],
-              }).catch(() => null)
-              if (!result) return
-              const transcript = active.messages
-                .filter(message => message.role === 'user' || message.kind === 'answer')
-                .map(
-                  message =>
-                    `${message.role === 'user' ? t('ui.me') : t('ui.assistant')}：${message.content}`,
-                )
-                .join('\n\n')
-              await Taro.setClipboardData({
-                data: `${active.conversation.title}\n\n${transcript}`,
-              }).catch(() => showToast(t('ui.copyFailedTryAgain')))
-            }}
-          >
-            <Icon name="send" />
-          </Button>
-        </View>
-        {active ? (
-          <>
-            <NavBar
-              title={active.conversation.title || t('ui.agentConversation')}
-              left={
-                <View
-                  className="chat-history-trigger chat-history-trigger-left"
-                  role="button"
-                  ariaRole="button"
-                  ariaLabel={CHAT_COPY.history}
-                  onClick={() => openDrawer()}
-                >
-                  <Icon name="more" />
-                </View>
-              }
-            />
-            <ScrollView
-              scrollY
-              className="chat-messages"
-              scrollIntoView={scrollTarget}
-              scrollWithAnimation
-            >
-              <View className="chat-messages-inner">
-                <View className="chat-turn-list">
-                  {messageTurns.map(turn => (
-                    <View id={turn.id} className={`chat-turn ${turn.role}`} key={turn.key}>
-                      {turn.messages.map(message => (
-                        <MessagePart
-                          key={message.id}
-                          message={message}
-                          imageResultUrls={turn.imageResultUrls}
-                          open={Boolean(thoughtOpen[message.id])}
-                          onToggleThought={toggleThought}
-                        />
-                      ))}
-                    </View>
+            <Icon name="more" />
+          </View>
+        }
+      />
+      {loadingConversation ? (
+        <ScrollView scrollY className="chat-messages">
+          <View className="chat-messages-inner">
+            <Skeleton layout="messages" />
+          </View>
+        </ScrollView>
+      ) : active ? (
+        <ScrollView scrollY className="chat-messages" scrollIntoView={scrollTarget} scrollAnchoring>
+          <View className="chat-messages-inner">
+            <View className="chat-turn-list">
+              {messageTurns.map(turn => (
+                <View id={turn.id} className={`chat-turn ${turn.role}`} key={turn.key}>
+                  {turn.messages.map(message => (
+                    <MessagePart
+                      key={message.id}
+                      message={message}
+                      imageResultUrls={turn.imageResultUrls}
+                      open={Boolean(thoughtOpen[message.id])}
+                      onToggleThought={toggleThought}
+                    />
                   ))}
-                  {streamTool || streamImageResult || streamThought || streamAnswer || running ? (
-                    <View className="chat-turn assistant is-streaming" role="status">
-                      {streamTool?.name === IMAGE_TOOL ? (
-                        <ImageGenerationPanel message={streamTool.message} />
-                      ) : streamTool ? (
-                        <View className="msg-tool">
-                          <View className="msg-tool-dot" />
-                          <Text>
-                            {t('ui.usingTool')}
-                            {streamTool.name}
-                          </Text>
-                        </View>
-                      ) : null}
-                      {streamImageResult ? <GeneratedImage result={streamImageResult} /> : null}
-                      {streamThought ? (
-                        <View className="msg-thought">
-                          <Text className="msg-thought-title">{t('ui.thinking')}</Text>
-                          <Text>{truncate(streamThought, 120)}</Text>
-                        </View>
-                      ) : null}
-                      {streamAnswer &&
-                      !streamAnswer.includes(streamImageResult?.url || '\u0000') ? (
-                        <View className="msg-answer stream">
-                          <Markdown content={streamAnswer} />
-                          <Text className="msg-stream-cursor">▍</Text>
-                        </View>
-                      ) : null}
-                      {running &&
-                      !streamAnswer &&
-                      !streamImageResult &&
-                      streamTool?.name !== IMAGE_TOOL ? (
-                        <View className="chat-typing">
-                          <View className="dot" />
-                          <View className="dot" />
-                          <View className="dot" />
-                        </View>
-                      ) : null}
+                </View>
+              ))}
+              {streamTool ||
+              streamImageResult ||
+              streamThought ||
+              streamAnswer ||
+              running ||
+              creating ? (
+                <View className="chat-turn assistant is-streaming" role="status">
+                  {streamTool?.name === IMAGE_TOOL ? (
+                    <ImageGenerationPanel tool={streamTool} showPlaceholder={!streamImageResult} />
+                  ) : streamTool ? (
+                    <View className="msg-tool">
+                      <View className="msg-tool-dot" />
+                      <Text>
+                        {t('ui.usingTool')}
+                        {streamTool.name}
+                      </Text>
+                    </View>
+                  ) : null}
+                  {streamImageResult ? <GeneratedImage result={streamImageResult} /> : null}
+                  {streamThought ? (
+                    <View className="msg-thought">
+                      <Text className="msg-thought-title">{t('ui.thinking')}</Text>
+                      <Text>{truncate(streamThought, 120)}</Text>
+                    </View>
+                  ) : null}
+                  {streamAnswer && !streamAnswer.includes(streamImageResult?.url || '\u0000') ? (
+                    <View className="msg-answer stream">
+                      <Markdown content={streamAnswer} />
+                      <Text className="msg-stream-cursor">▍</Text>
+                    </View>
+                  ) : null}
+                  {(running || creating) &&
+                  !streamAnswer &&
+                  !streamImageResult &&
+                  streamTool?.name !== IMAGE_TOOL ? (
+                    <View className="chat-typing">
+                      <View className="dot" />
+                      <View className="dot" />
+                      <View className="dot" />
                     </View>
                   ) : null}
                 </View>
-                <View className="chat-scroll-sentinels">
-                  <View id="chat-scroll-bottom-a" className="chat-scroll-sentinel" />
-                  <View id="chat-scroll-bottom-b" className="chat-scroll-sentinel" />
-                </View>
-              </View>
-            </ScrollView>
-            <ChatComposer
-              value={input}
-              placeholder={CHAT_COPY.inputPlaceholder}
-              sendLabel={CHAT_COPY.inputPlaceholder}
-              stopLabel={CHAT_COPY.stop}
-              running={running}
-              creating={creating}
-              attachments={attachments}
-              uploading={uploadingAttachments}
-              onChange={setInput}
-              onAddAttachment={handleAddAttachment}
-              onRemoveAttachment={url =>
-                setAttachments(current => current.filter(item => item.url !== url))
-              }
-              onSubmit={() => handleSend()}
-              onStop={handleCancel}
-            />
-          </>
-        ) : (
-          <>
-            <NavBar
-              title="DinQor"
-              left={
+              ) : null}
+            </View>
+            <View className="chat-scroll-sentinels">
+              <View id="chat-scroll-bottom-a" className="chat-scroll-sentinel" />
+              <View id="chat-scroll-bottom-b" className="chat-scroll-sentinel" />
+            </View>
+          </View>
+        </ScrollView>
+      ) : (
+        <ScrollView scrollY enableBackToTop className="chat-messages chat-messages--home">
+          <View className="chat-home-empty">
+            <Text className="chat-home-title">{t('ui.whereShallWeStart')}</Text>
+            <View className="chat-home-quick-list">
+              {QUICK_PROMPTS().map(prompt => (
                 <View
-                  className="chat-history-trigger chat-history-trigger-left"
+                  key={prompt}
+                  className="chat-home-quick"
                   role="button"
                   ariaRole="button"
-                  ariaLabel={CHAT_COPY.history}
-                  onClick={() => openDrawer()}
+                  ariaLabel={prompt}
+                  onClick={() => {
+                    replaceComposerDraft(prompt)
+                  }}
                 >
-                  <Icon name="more" />
+                  <Text>{prompt}</Text>
                 </View>
-              }
-            />
-            <View className="chat-home-empty">
-              <Text className="chat-home-title">{t('ui.whereShallWeStart')}</Text>
-              <View className="chat-home-quick-list">
-                {QUICK_PROMPTS().map(prompt => (
-                  <View
-                    key={prompt}
-                    className="chat-home-quick"
-                    role="button"
-                    ariaRole="button"
-                    ariaLabel={prompt}
-                    onClick={() => setInput(prompt)}
-                  >
-                    <Text>{prompt}</Text>
-                  </View>
-                ))}
-              </View>
+              ))}
             </View>
-            <ChatComposer
-              value={input}
-              placeholder={CHAT_COPY.inputPlaceholder}
-              sendLabel={CHAT_COPY.inputPlaceholder}
-              stopLabel={CHAT_COPY.stop}
-              running={running}
-              creating={creating}
-              attachments={attachments}
-              uploading={uploadingAttachments}
-              onChange={setInput}
-              onAddAttachment={handleAddAttachment}
-              onRemoveAttachment={url =>
-                setAttachments(current => current.filter(item => item.url !== url))
-              }
-              onSubmit={() => handleSend()}
-              onStop={handleCancel}
-            />
-          </>
-        )}
-        <View
-          className={`chat-drawer-dismiss ${drawerPhase !== 'closed' ? 'show' : ''}`}
-          role="button"
-          ariaRole="button"
-          ariaLabel={CHAT_COPY.history}
-          catchMove={drawerPhase !== 'closed'}
-          onClick={event => {
-            event.stopPropagation()
-            closeDrawer()
-          }}
-        />
-      </View>
-      <ChatDrawer
-        visible={drawerPhase !== 'closed'}
-        closing={drawerPhase === 'closing'}
-        onClose={closeDrawer}
-        conversations={conversations}
-        activeId={activeIdRef.current}
-        onSelect={openConversation}
-        onNewChat={startNewChat}
-        user={user}
+          </View>
+        </ScrollView>
+      )}
+      <ChatComposer
+        value={composerDraft.value}
+        draftRevision={composerDraft.revision}
+        placeholder={CHAT_COPY.inputPlaceholder}
+        sendLabel={CHAT_COPY.inputPlaceholder}
+        stopLabel={CHAT_COPY.stop}
+        running={running}
+        creating={creating}
+        attachments={attachments}
+        uploading={uploadingAttachments}
+        onChange={handleComposerChange}
+        onAddAttachment={handleAddAttachment}
+        onRemoveAttachment={idOrUrl =>
+          setAttachments(current =>
+            current.filter(item => (item.id ? item.id !== idOrUrl : item.url !== idOrUrl)),
+          )
+        }
+        onSubmit={content => handleSend(content)}
+        onStop={handleCancel}
+        onKeyboardHeightChange={updateKeyboardInset}
       />
+      <ChatKeyboardClearance />
+      <View
+        className={`chat-drawer-dismiss ${drawerPhase !== 'closed' ? 'show' : ''}`}
+        role="button"
+        ariaRole="button"
+        ariaLabel={CHAT_COPY.history}
+        onClick={event => {
+          event.stopPropagation()
+          if (!drawerGesture.suppressClick()) closeDrawer()
+        }}
+      />
+    </DrawerMotionView>
+  )
+  const sidebar = (
+    <ChatDrawer
+      visible={drawerPhase !== 'closed'}
+      closing={drawerPhase === 'closing'}
+      onClose={closeDrawer}
+      gesture={drawerGesture}
+      conversations={conversations}
+      loadingConversations={loadingConversations}
+      hasMore={hasMoreConversations}
+      onSearch={search => void loadConversations(search)}
+      onLoadMore={() => void loadConversations(conversationListRef.current.search, true)}
+      onPinned={updated =>
+        setConversations(previous =>
+          previous
+            .map(item => (item.id === updated.id ? updated : item))
+            .sort(
+              (a, b) =>
+                Number(b.isPinned || 0) - Number(a.isPinned || 0) ||
+                b.updatedAt.localeCompare(a.updatedAt) ||
+                b.id - a.id,
+            ),
+        )
+      }
+      loadingUser={!user && !userLoaded && Boolean(tokenStorage.getAccessToken())}
+      activeId={activeIdRef.current}
+      onSelect={openConversation}
+      onNewChat={startNewChat}
+      user={user}
+    />
+  )
+
+  return (
+    <View className={`chat-page ${isNativeDrawer ? 'chat-page--native-drawer' : ''}`}>
+      {isNativeDrawer ? (
+        <NativeChatDrawer
+          open={drawerPhase === 'open'}
+          active={panelActive}
+          sidebar={sidebar}
+          onReveal={openDrawer}
+          onSettle={open => (open ? openDrawer() : closeDrawer())}
+          onDrag={() => {
+            nativeSuppressUntil.current = Date.now() + 350
+          }}
+        >
+          {chatSurface}
+        </NativeChatDrawer>
+      ) : (
+        <>
+          {chatSurface}
+          {sidebar}
+        </>
+      )}
     </View>
   )
 }
@@ -966,49 +1269,56 @@ const MessagePart = memo(function MessagePart({
       </View>
     )
   }
-  for (const url of imageResultUrls) {
-    if (message.content?.includes(url)) return null
-  }
+  const parts = splitImageAnswer(message.content || t('ui.emptyResponse'))
   return (
-    <View className="msg-answer">
-      <Markdown content={message.content || t('ui.emptyResponse')} />
-    </View>
+    <>
+      {parts.map((part, index) =>
+        part.type === 'image' ? (
+          [...imageResultUrls].some(url => sameImageResource(url, part.url)) ? null : (
+            <GeneratedImage
+              key={`${message.id}-${index}`}
+              result={{ url: part.url, title: part.title }}
+            />
+          )
+        ) : part.content.trim() ? (
+          <View className="msg-answer" key={`${message.id}-${index}`}>
+            <Markdown content={part.content} />
+          </View>
+        ) : null,
+      )}
+    </>
   )
 })
 
-function ImageGenerationPanel({ message }: { message?: string }) {
+function ImageGenerationPanel({
+  tool,
+  showPlaceholder,
+}: {
+  tool: StreamToolState
+  showPlaceholder: boolean
+}) {
   useLocale()
   return (
     <View className="msg-image-generating">
       <View className="msg-image-pattern" />
       <View className="msg-image-generating-title">
         <Text className="msg-image-sparkle">✦</Text>
-        <Text>{message || t('chat.generatingImage')}</Text>
+        <Text>
+          {tool.saving ? t('chat.savingGeneratedImage') : tool.message || t('chat.generatingImage')}
+        </Text>
         <View className="msg-image-generating-dots">
           <View className="dot" />
           <View className="dot" />
           <View className="dot" />
         </View>
       </View>
-      <View className="msg-image-placeholder">
-        <View className="msg-image-placeholder-frame" />
-        <Text className="msg-image-placeholder-sparkle">✦</Text>
-      </View>
-    </View>
-  )
-}
-
-function GeneratedImage({ result }: { result: GeneratedImageResult }) {
-  useLocale()
-  return (
-    <View
-      className="msg-generated-image"
-      role="button"
-      ariaRole="button"
-      ariaLabel={result.title || t('chat.generatedImage')}
-      onClick={() => Taro.previewImage({ current: result.url, urls: [result.url] })}
-    >
-      <Image className="msg-generated-image-content" src={result.url} mode="widthFix" lazyLoad />
+      {showPlaceholder && (
+        <View className="msg-image-placeholder">
+          <View className="msg-image-placeholder-frame" />
+          <Text className="msg-image-placeholder-sparkle">✦</Text>
+        </View>
+      )}
+      {tool.progress != null && <Text className="msg-image-progress">{tool.progress}%</Text>}
     </View>
   )
 }

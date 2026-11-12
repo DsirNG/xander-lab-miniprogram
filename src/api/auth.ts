@@ -25,7 +25,19 @@ export type TokenResponse = {
   pendingBindToken?: string
 }
 
+export type QrLoginStatus = {
+  status: string
+  device?: { os: string; browser: string }
+  createdAt?: number
+  expiresAt?: number
+}
+
 export const authApi = {
+  qrStatus: (ticket: string) =>
+    request<QrLoginStatus>(`/api/auth/qr/status?ticket=${encodeURIComponent(ticket)}`, {
+      method: 'GET',
+      anonymous: true,
+    }),
   confirmQrLogin: (ticket: string) =>
     request<void>(`/api/auth/qr/confirm?ticket=${encodeURIComponent(ticket)}`, { method: 'POST' }),
   /** 发送邮箱验证码（绑定流程与账号登录共用同一个 Redis 验证码） */
@@ -121,12 +133,10 @@ export const authApi = {
       data: { email, code, newPassword },
     }),
   /** 登出当前设备 */
-  logout: async () => {
-    try {
-      await request<void>('/api/auth/logout', { method: 'POST' })
-    } finally {
-      tokenStorage.clear()
-    }
+  logout: () => {
+    const pending = request<void>('/api/auth/logout', { method: 'POST' })
+    tokenStorage.clear()
+    return pending
   },
   isLoggedIn: () => Boolean(tokenStorage.getAccessToken()),
 }

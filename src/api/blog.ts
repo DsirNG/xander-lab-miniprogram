@@ -70,12 +70,12 @@ const toQuery = (params: Record<string, unknown>) => {
 
 export const blogApi = {
   getArticles: (params: ArticleQuery = {}) =>
-    request<ArticlePage>(`/api/blog/posts${toQuery({ page: 1, size: 10, ...params })}`),
+    request<ArticlePage>(`/api/blog/posts${toQuery({ page: 1, size: 10, ...params })}`, { anonymous: true }),
   getRecentArticles: (limit = 5) => request<Article[]>(`/api/blog/posts/recent?limit=${limit}`),
   getArticle: (id: string | number) => request<Article>(`/api/blog/posts/${id}`),
-  getCategories: () => request<Category[]>('/api/blog/categories'),
+  getCategories: () => request<Category[]>('/api/blog/categories', { anonymous: true }),
   getTags: () => request<Tag[]>('/api/blog/tags'),
-  getPopularTags: (limit = 10) => request<Tag[]>(`/api/blog/tags/popular?limit=${limit}`),
+  getPopularTags: (limit = 10) => request<Tag[]>(`/api/blog/tags/popular?limit=${limit}`, { anonymous: true }),
   recordView: (id: string | number) =>
     request<{ counted: boolean }>(`/api/blog/posts/${id}/view`, { method: 'POST' }),
 

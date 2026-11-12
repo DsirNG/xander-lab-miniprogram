@@ -1,3 +1,5 @@
+import { ThemeView } from '@/components/ThemeView'
+import { Skeleton } from '@/components/Skeleton'
 import { Text, View } from '@tarojs/components'
 import Taro, { useLoad } from '@tarojs/taro'
 import { useEffect, useRef, useState } from 'react'
@@ -119,53 +121,45 @@ export default function RecitationReportPage() {
 
   if (loading) {
     return (
-      <View className="page">
+      <ThemeView className="page">
         <NavBar title={t('recitation.report')} showBack />
-        <PageState
-          kind="loading"
-          title={t('recitation.processing')}
-          description={t('recitation.processingHint')}
-        />
-      </View>
+        <Skeleton layout="recitationReport" />
+      </ThemeView>
     )
   }
   if (!attempt) {
     return (
-      <View className="page">
+      <ThemeView className="page">
         <NavBar title={t('recitation.report')} showBack />
         <PageState kind="error" title={t('recitation.reportFailed')} />
-      </View>
+      </ThemeView>
     )
   }
   if (attempt.status === 'FAILED') {
     return (
-      <View className="page">
+      <ThemeView className="page">
         <NavBar title={t('recitation.report')} showBack />
         <PageState
           kind="error"
           title={t('recitation.recognitionFailed')}
           description={attempt.errorMessage || t('recitation.tryAgain')}
         />
-      </View>
+      </ThemeView>
     )
   }
   if (attempt.status !== 'SUCCEEDED' || !attempt.result) {
     return (
-      <View className="page">
+      <ThemeView className="page">
         <NavBar title={t('recitation.report')} showBack />
-        <PageState
-          kind="loading"
-          title={t('recitation.processing')}
-          description={t('recitation.processingHint')}
-        />
-      </View>
+        <Skeleton layout="recitationReport" />
+      </ThemeView>
     )
   }
 
   const result = attempt.result
   const differences = groupReportDifferences(result.differences, result.normalizedExpected)
   return (
-    <View className="page recitation-report-page">
+    <ThemeView className="page recitation-report-page">
       <NavBar title={t('recitation.report')} showBack />
       <View className="recitation-report-content">
         <View className="recitation-score-card">
@@ -247,6 +241,6 @@ export default function RecitationReportPage() {
           )}
         </View>
       </View>
-    </View>
+    </ThemeView>
   )
 }

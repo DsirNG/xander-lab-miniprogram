@@ -1,12 +1,16 @@
 import { request } from './http'
 
 export type PointsOverview = {
+  subscriptionBalance?: number
+  permanentBalance?: number
+  nextExpiry?: string | null
   balance: number
   consumedToday: number
   enablePreCheck: boolean
 }
 
 export type PointsLedgerItem = {
+  bizType?: string
   id: number
   delta: number
   direction: 'credit' | 'debit'

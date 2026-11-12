@@ -7,39 +7,51 @@
   background: var(--color-canvas);
 }
 
-.main-shell__track {
-  display: flex;
-  width: 100%;
-  height: 100%;
-  transform: translate3d(-100%, 0, 0);
-  transition: transform 360ms cubic-bezier(0.22, 0.8, 0.26, 1);
+.main-shell__navigation {
+  position: absolute;
+  z-index: 50;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: calc(80px + env(safe-area-inset-bottom, 0px));
+  pointer-events: none;
 }
 
-.main-shell--chat .main-shell__track {
+.main-shell__navigation .tab-bar {
+  position: absolute;
+  pointer-events: auto;
+}
+
+.main-shell .nav-bar {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  z-index: 50;
+}
+
+/* Both surfaces share a settled transform and the same live drag offset. */
+.main-shell { --chat-drawer-offset: 70vw; }
+
+.chat-main-shell,
+.main-shell__navigation {
   transform: translate3d(0, 0, 0);
+  transition: transform 320ms var(--ease-emphasized);
 }
 
-.main-shell__chat-page,
-.main-shell__main-page {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  flex-shrink: 0;
-  overflow: hidden;
+.chat-main-shell.is-drawer-open,
+.main-shell__navigation.is-drawer-open {
+  transform: translate3d(var(--chat-drawer-offset), 0, 0);
 }
 
-.main-shell__main-page .tab-bar {
-  position: absolute;
-}
-
-.main-shell__main-page .nav-bar {
-  position: absolute;
+.main-shell__navigation.is-drawer-open .tab-bar,
+.main-shell__navigation.is-drawer-closing .tab-bar,
+.main-shell__navigation.is-drawer-dragging .tab-bar {
+  pointer-events: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .main-shell__track {
-    transition: none;
-  }
+  .chat-main-shell, .main-shell__navigation { transition: none; }
 }
 
 .main-shell__content {
@@ -54,51 +66,75 @@
 
 .main-panel {
   display: none;
+  position: relative;
   width: 100%;
   height: 100%;
   min-height: 0;
   overflow: hidden;
   box-sizing: border-box;
-  padding: 72px var(--space-6) 40px;
+  padding: 0;
   background: var(--color-canvas);
 }
 
 .main-panel.is-active {
-  display: block;
+  display: flex;
+  flex-direction: column;
+  animation: fluid-panel-enter var(--motion-normal, 260ms) var(--ease-emphasized, cubic-bezier(0.22, 1, 0.36, 1));
+}
+
+@keyframes fluid-panel-enter {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 .main-panel__scroll {
+  flex: 1;
   width: 100%;
+  min-height: 0;
   height: 100%;
+  -webkit-overflow-scrolling: touch;
 }
 
-.main-panel--chat {
-  background: linear-gradient(180deg, #f7fbff 0%, var(--color-canvas) 48%);
+.main-panel__scroll .page {
+  min-height: 100%;
 }
 
-.main-panel--calendar {
-  background: linear-gradient(180deg, #fffaf2 0%, var(--color-canvas) 48%);
-}
-
-.main-panel--article {
-  background: linear-gradient(180deg, #f8f5ff 0%, var(--color-canvas) 48%);
-}
-
+.main-panel--chat,
+.main-panel--files,
+.main-panel--article,
 .main-panel--user {
-  background: linear-gradient(180deg, #f5fbf8 0%, var(--color-canvas) 48%);
+  background: var(--color-canvas);
 }
 
 /* Migrated feature pages already own their page padding. */
-.main-panel--calendar,
+.main-panel--files,
 .main-panel--user,
 .main-panel--article,
 .main-panel--chat {
   padding: 0;
 }
 
-/* The full-screen conversation owns its bottom safe area. */
+/* The navigation dock owns the safe area beneath the conversation input. */
 .main-panel--chat .chat-composer-dock {
-  padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+  padding-bottom: 10px;
+}
+
+/* Reserve space below the whole composer, never below the caret. */
+.chat-composer-clearance {
+  order: 3;
+  flex-shrink: 0;
+  height: calc(80px + env(safe-area-inset-bottom, 0px));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .main-panel.is-active {
+    animation: none;
+  }
 }
 
 .main-panel__eyebrow {
@@ -140,7 +176,7 @@
   height: 128px;
   margin-top: 48px;
   border-radius: var(--radius-lg);
-  background: rgba(255, 255, 255, 0.76);
+  background: var(--color-surface-muted);
   box-shadow: var(--shadow-floating);
 }
 
@@ -148,3 +184,64 @@
   height: 72px;
   margin-top: var(--space-4);
 }
+
+.library-content {
+  padding: var(--space-3) var(--space-4) calc(96px + env(safe-area-inset-bottom, 0px));
+}
+
+.library-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.library-thumbnail {
+  position: relative;
+  aspect-ratio: 1;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-muted);
+}
+
+.library-image {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+}
+
+.library-image.is-ready {
+  opacity: 1;
+}
+
+.library-status {
+  color: var(--color-ink-muted);
+}
+
+.library-status,
+.library-action {
+  padding: var(--space-4);
+  text-align: center;
+}
+
+.library-action {
+  color: var(--color-accent);
+}
+
+.library-thumbnail-error {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  color: var(--color-ink-secondary);
+  font-size: var(--text-caption);
+  text-align: center;
+}
+
+.library-thumbnail-error text:last-child { text-decoration: underline; }

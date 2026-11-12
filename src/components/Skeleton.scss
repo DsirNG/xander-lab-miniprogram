@@ -1,0 +1,90 @@
+.sk-layout,
+.sk-stack {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.sk-layout {
+  width: 100%;
+}
+.sk-stack {
+  gap: 8px;
+}
+.sk-row .sk-stack {
+  flex: 1;
+}
+
+.sk-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.sk-block {
+  flex-shrink: 0;
+  border-radius: 6px;
+  background: var(--color-surface-hover, #ebebee);
+  animation: skeleton-pulse 1.25s ease-in-out infinite alternate;
+}
+
+.sk-circle {
+  border-radius: 50%;
+}
+.sk-list-item {
+  padding: 12px 0;
+}
+.sk-layout--recitation .sk-list-item,
+.sk-layout--subscription .sk-list-item,
+.sk-layout--recitationReport .sk-list-item,
+.sk-layout--planDetail .sk-list-item,
+.sk-layout--recitationPractice .sk-list-item {
+  padding: 16px;
+  border-radius: 14px;
+  background: var(--color-surface-muted, #f4f4f5);
+}
+
+.sk-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.sk-tile {
+  aspect-ratio: 1;
+  border-radius: var(--radius-lg);
+}
+.sk-score {
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+  padding: 24px;
+}
+.sk-message {
+  width: 72%;
+}
+.sk-message--mine {
+  align-self: flex-end;
+  width: 52%;
+}
+.sk-layout--messages {
+  gap: 28px;
+}
+
+
+@keyframes skeleton-pulse {
+  from {
+    opacity: 0.3;
+  }
+  to {
+    opacity: 0.75;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sk-block {
+    animation: none;
+    opacity: 0.5;
+  }
+}

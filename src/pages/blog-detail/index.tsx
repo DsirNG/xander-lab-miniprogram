@@ -1,3 +1,5 @@
+import { ThemeView } from '@/components/ThemeView'
+import { Skeleton } from '@/components/Skeleton'
 import { t, useLocale } from '@/i18n'
 import { Button, Text, View } from '@tarojs/components'
 import Taro, { useRouter, useShareAppMessage } from '@tarojs/taro'
@@ -63,9 +65,9 @@ export default function BlogDetail() {
   }))
 
   return (
-    <View className="detail-page">
+    <ThemeView className="detail-page">
       <NavBar title={t('ui.articleDetails')} showBack />
-      {loading ? <Text className="data-state">{t('ui.loadingArticles')}</Text> : null}
+      {loading ? <Skeleton layout="articleDetail" /> : null}
       {error ? <Text className="data-state error">{error}</Text> : null}
       {article ? (
         <>
@@ -107,6 +109,6 @@ export default function BlogDetail() {
           </View>
         </>
       ) : null}
-    </View>
+    </ThemeView>
   )
 }

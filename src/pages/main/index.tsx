@@ -1,3 +1,9 @@
+import { getDrawerTravel } from '@/utils/drawerGeometry'
+import type { CSSProperties } from 'react'
+import { DrawerMotionView } from '@/components/DrawerMotionView'
+import { ThemeView } from '@/components/ThemeView'
+import { hasSession, useSessionVersion } from '@/utils/privateCache'
+import { ensureLogin } from '@/store/user'
 import { View } from '@tarojs/components'
 import { useDidShow, useLoad } from '@tarojs/taro'
 import { useEffect, useRef, useState } from 'react'
@@ -5,8 +11,9 @@ import { TabBar } from '@/components/TabBar'
 import { useTabBarStore } from '@/store/tabBar'
 import { TAB_ITEMS, type TabKey } from '@/utils/tabBarRoute'
 import { ChatPanel } from './panels/ChatPanel'
+import type { ChatDrawerPhase } from '@/features/chat/ChatContent'
 import { ProfilePanel } from './panels/ProfilePanel'
-import { PlansPanel } from './panels/PlansPanel'
+import { FilesPanel } from './panels/FilesPanel'
 import { BlogPanel } from './panels/BlogPanel'
 import './index.scss'
 
@@ -15,13 +22,15 @@ function isTabKey(value?: string): value is TabKey {
 }
 
 export default function MainPage() {
+  const session = useSessionVersion()
+  const signedIn = hasSession()
   const active = useTabBarStore(state => state.active)
-  const mainTab = useTabBarStore(state => state.mainTab)
-  const visibleMainTab = active === 'chat' ? mainTab : active
   const setActive = useTabBarStore(state => state.setActive)
   const refreshVersions = useTabBarStore(state => state.refreshVersions)
   const [visited, setVisited] = useState<Set<TabKey>>(() => new Set(['chat']))
   const [initialBlogTag, setInitialBlogTag] = useState('')
+  const [drawerTravel, setDrawerTravel] = useState(getDrawerTravel)
+  const [drawerPhase, setDrawerPhase] = useState<ChatDrawerPhase>('closed')
   const [pageShowCount, setPageShowCount] = useState(0)
   const pageShowCountRef = useRef(0)
   const renderCountRef = useRef(0)
@@ -46,6 +55,7 @@ export default function MainPage() {
   }, [active])
 
   useDidShow(() => {
+    setDrawerTravel(getDrawerTravel())
     pageShowCountRef.current += 1
     const next = pageShowCountRef.current
     console.log('[MainShell] PAGE_SHOW', { count: next })
@@ -64,6 +74,7 @@ export default function MainPage() {
   useLoad(options => {
     const tab = options?.tab
     if (isTabKey(tab)) {
+      if (tab === 'user' && !ensureLogin(() => setActive(tab))) return
       markVisited(tab)
       setActive(tab)
       if (tab === 'article' && options?.tag) setInitialBlogTag(options.tag)
@@ -74,42 +85,54 @@ export default function MainPage() {
     markVisited(active)
   }, [active])
 
+  useEffect(() => {
+    setDrawerPhase('closed')
+    if (!signedIn && useTabBarStore.getState().active === 'user') setActive('chat')
+  }, [session, signedIn, setActive])
+
+  const drawerClass =
+    active === 'chat' && drawerPhase !== 'closed' ? `is-drawer-${drawerPhase}` : ''
+
   return (
-    <View className={`main-shell ${active === 'chat' ? 'main-shell--chat' : ''}`}>
-      <View className="main-shell__track">
-        <View className="main-shell__chat-page">
-          <ChatPanel active={active === 'chat'} refreshVersion={refreshVersions.chat} />
-        </View>
-        <View className="main-shell__main-page">
-          <View className="main-shell__content">
-            {visited.has('calendar') || visibleMainTab === 'calendar' ? (
-              <PlansPanel
-                active={visibleMainTab === 'calendar'}
-                pageShowCount={pageShowCount}
-                refreshVersion={refreshVersions.calendar}
-              />
-            ) : null}
-
-            {visited.has('article') || visibleMainTab === 'article' ? (
-              <BlogPanel
-                active={visibleMainTab === 'article'}
-                pageShowCount={pageShowCount}
-                initialTag={initialBlogTag}
-                refreshVersion={refreshVersions.article}
-              />
-            ) : null}
-
-            {visited.has('user') || visibleMainTab === 'user' ? (
-              <ProfilePanel
-                active={visibleMainTab === 'user'}
-                refreshVersion={refreshVersions.user}
-              />
-            ) : null}
-          </View>
-
-          <TabBar />
-        </View>
+    <ThemeView
+      className="main-shell"
+      style={{ '--chat-drawer-offset': `${drawerTravel}px` } as CSSProperties}
+    >
+      <View className="main-shell__content">
+        <ChatPanel
+          key={`chat:${session}`}
+          active={active === 'chat'}
+          refreshVersion={refreshVersions.chat}
+          onDrawerPhaseChange={setDrawerPhase}
+        />
+        {visited.has('files') || active === 'files' ? (
+          <FilesPanel
+            key={`files:${session}`}
+            active={active === 'files'}
+            refreshVersion={refreshVersions.files}
+          />
+        ) : null}
+        {visited.has('article') || active === 'article' ? (
+          <BlogPanel
+            active={active === 'article'}
+            pageShowCount={pageShowCount}
+            initialTag={initialBlogTag}
+            refreshVersion={refreshVersions.article}
+          />
+        ) : null}
+        {visited.has('user') || active === 'user' ? (
+          <ProfilePanel
+            key={`profile:${session}`}
+            active={active === 'user'}
+            refreshVersion={refreshVersions.user}
+          />
+        ) : null}
       </View>
-    </View>
+      {(active !== 'chat' || process.env.TARO_ENV !== 'weapp') && (
+        <DrawerMotionView className={`main-shell__navigation ${drawerClass}`}>
+          <TabBar />
+        </DrawerMotionView>
+      )}
+    </ThemeView>
   )
 }

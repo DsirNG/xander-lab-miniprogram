@@ -1,5 +1,6 @@
 import { t } from '@/i18n'
-import { request, uploadFile } from './http'
+import { request, requestEventStream, uploadFile } from './http'
+import type { AgentStreamEvent } from './agentSocket'
 import { getLocale, getReplyLanguage } from '@/i18n'
 
 export type AgentAttachment = {
@@ -9,7 +10,7 @@ export type AgentAttachment = {
   size: number
 }
 
-export type ConversationStatus = 'ready' | 'running' | 'failed'
+export type ConversationStatus = 'ready' | 'running' | 'failed' | 'awaiting_approval'
 
 export type AgentConversation = {
   id: number
@@ -19,6 +20,9 @@ export type AgentConversation = {
   errorMessage?: string | null
   runVersion?: number | null
   cancelRequested?: number
+  isPinned?: number
+  lastReadAt?: string | null
+  lastCompletedAt?: string | null
   shareToken?: string | null
   createdAt: string
   updatedAt: string
@@ -40,7 +44,7 @@ export type ConversationSnapshot = {
   messages: AgentMessage[]
 }
 
-/** 小程序不支持 SSE 流式读取：HTTP 触发执行，WebSocket 消费实时事件。 */
+/** 新消息直接读取 SSE；恢复已有轮次时用 WebSocket 重放持久化事件。 */
 
 export const agentApi = {
   uploadAttachment: (filePath: string) =>
@@ -54,6 +58,20 @@ export const agentApi = {
     if (Array.isArray(result?.items)) return result.items
     throw new Error(t('ui.invalidConversationListResponse'))
   },
+  listConversationPage: async (page = 1, search = '') => {
+    const result = await request<
+      AgentConversation[] | { items: AgentConversation[]; hasMore: boolean }
+    >(`/api/agent/conversations?page=${page}&size=20&search=${encodeURIComponent(search)}`)
+    if (Array.isArray(result)) return { items: result, hasMore: false }
+    if (!Array.isArray(result?.items)) throw new Error(t('ui.invalidConversationListResponse'))
+    return { items: result.items, hasMore: Boolean(result.hasMore) }
+  },
+  setPinned: (id: number, pinned: boolean) =>
+    request<AgentConversation>(`/api/agent/conversations/${id}/pin`, {
+      method: pinned ? 'POST' : 'DELETE',
+    }),
+  markRead: (id: number) =>
+    request<AgentConversation>(`/api/agent/conversations/${id}/read`, { method: 'POST' }),
   createConversation: (content: string) =>
     request<ConversationSnapshot>('/api/agent/conversations', {
       method: 'POST',
@@ -61,12 +79,21 @@ export const agentApi = {
     }),
   getConversation: (id: number) => request<ConversationSnapshot>(`/api/agent/conversations/${id}`),
   getMessages: (id: number) => request<AgentMessage[]>(`/api/agent/conversations/${id}/messages`),
-  /** 触发一轮智能体后台执行（非流式端点，立即返回 runVersion 用于订阅 WebSocket） */
-  sendMessage: (id: number, content: string, attachments: AgentAttachment[] = []) =>
-    request<number>(`/api/agent/conversations/${id}/messages`, {
-      method: 'POST',
-      data: { content, attachments, locale: getLocale(), replyLanguage: getReplyLanguage() },
-    }),
+  /** Start and consume the same SSE request; the first event is delivered before completion. */
+  sendMessageStream: (
+    id: number,
+    content: string,
+    attachments: AgentAttachment[] = [],
+    onEvent: (event: AgentStreamEvent) => void,
+  ) =>
+    requestEventStream(
+      `/api/agent/conversations/${id}/messages/stream`,
+      {
+        method: 'POST',
+        data: { content, attachments, locale: getLocale(), replyLanguage: getReplyLanguage() },
+      },
+      onEvent,
+    ),
   cancel: (id: number) =>
     request<AgentConversation>(`/api/agent/conversations/${id}/cancel`, { method: 'POST' }),
   share: (id: number) =>

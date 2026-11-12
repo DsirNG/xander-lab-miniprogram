@@ -1,3 +1,6 @@
+import { showThemedActionSheet } from '@/utils/actionSheet'
+import { ThemeView } from '@/components/ThemeView'
+import { Skeleton } from '@/components/Skeleton'
 import { t, useLocale } from '@/i18n'
 import { Text, View } from '@tarojs/components'
 import Taro, { useReachBottom, useRouter } from '@tarojs/taro'
@@ -173,7 +176,7 @@ export default function PlanDetail() {
     }
     if (actions.length === 0) return
     try {
-      const result = await Taro.showActionSheet({ itemList: actions.map(item => item.label) })
+      const result = await showThemedActionSheet({ itemList: actions.map(item => item.label) })
       await actions[result.tapIndex]?.run()
     } catch {
       // 用户关闭操作菜单时不需要反馈。
@@ -182,26 +185,26 @@ export default function PlanDetail() {
 
   if (loading) {
     return (
-      <View className="detail-page">
+      <ThemeView className="detail-page">
         <NavBar title={t('ui.planDetails')} showBack />
-        <Text className="data-state">{t('ui.loadingPlans')}</Text>
-      </View>
+        <Skeleton layout="planDetail" />
+      </ThemeView>
     )
   }
 
   if (!plan) {
     return (
-      <View className="detail-page">
+      <ThemeView className="detail-page">
         <NavBar title={t('ui.planDetails')} showBack />
         <View className="empty-state">
           <Text className="empty-title">{t('ui.planNotFound')}</Text>
         </View>
-      </View>
+      </ThemeView>
     )
   }
 
   return (
-    <View className="detail-page">
+    <ThemeView className="detail-page">
       <NavBar title={t('ui.planDetails')} showBack />
 
       <View className="plan-info-card">
@@ -266,7 +269,7 @@ export default function PlanDetail() {
         <Text>{t('preferences.scheduledCount', { count: runsTotal })}</Text>
       </View>
       {runsLoading && runs.length === 0 ? (
-        <Text className="data-state">{t('ui.loading')}</Text>
+        <Skeleton layout="planRuns" count={1} />
       ) : null}
       {!runsLoading && runs.length === 0 ? (
         <Text className="data-state">{t('ui.noRunsYetStartAPlanTo')}</Text>
@@ -321,8 +324,8 @@ export default function PlanDetail() {
         </View>
       ))}
       {runsLoading && runs.length > 0 ? (
-        <Text className="data-state">{t('ui.loading')}</Text>
+        <Skeleton layout="planItems" count={1} />
       ) : null}
-    </View>
+    </ThemeView>
   )
 }

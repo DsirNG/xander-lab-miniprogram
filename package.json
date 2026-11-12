@@ -4,7 +4,8 @@
   "version": "0.1.0",
   "scripts": {
     "dev:weapp": "taro build --type weapp --watch",
-    "build:weapp": "taro build --type weapp",
+    "preview:phone": "npm run build:weapp && node scripts/fix-weapp-ci-deps.mjs && node scripts/preview.mjs",
+    "build:weapp": "taro build --type weapp && node scripts/check-weapp-entries.cjs && node scripts/check-wxs.cjs && node scripts/check-wxss.cjs",
     "dev:alipay": "taro build --type alipay --watch",
     "build:alipay": "taro build --type alipay",
     "dev:h5": "taro build --type h5 --watch",

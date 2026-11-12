@@ -1,3 +1,6 @@
+import { showThemedActionSheet } from '@/utils/actionSheet'
+import { ThemeView } from '@/components/ThemeView'
+import { Skeleton } from '@/components/Skeleton'
 import { t, useLocale } from '@/i18n'
 import { Input, Text, View } from '@tarojs/components'
 import Taro, { useDidShow, useReachBottom } from '@tarojs/taro'
@@ -178,7 +181,7 @@ export default function BlogManage() {
       actions.push({ label: t('ui.moveToTrash'), run: () => removeArticle(article, false) })
     }
     try {
-      const result = await Taro.showActionSheet({ itemList: actions.map(item => item.label) })
+      const result = await showThemedActionSheet({ itemList: actions.map(item => item.label) })
       await actions[result.tapIndex]?.run()
     } catch {
       // 用户关闭操作菜单时不需要反馈。
@@ -194,7 +197,7 @@ export default function BlogManage() {
   }
 
   return (
-    <View className="detail-page">
+    <ThemeView className="detail-page">
       <NavBar title={t('ui.myArticles')} showBack />
 
       <View className="manage-toolbar">
@@ -241,8 +244,8 @@ export default function BlogManage() {
         ))}
       </View>
 
-      {loading && articles.length === 0 ? (
-        <Text className="data-state">{t('ui.loadingData')}</Text>
+      {(loading || !loadedOnce) && articles.length === 0 ? (
+        <Skeleton layout="blogManage" />
       ) : null}
       {loadedOnce && !loading && articles.length === 0 ? (
         <View className="empty-state">
@@ -284,11 +287,11 @@ export default function BlogManage() {
         </View>
       ))}
       {loading && articles.length > 0 ? (
-        <Text className="data-state">{t('ui.loading')}</Text>
+        <Skeleton layout="blogManage" count={1} />
       ) : null}
       {loadedOnce && !loading && articles.length > 0 && articles.length >= total ? (
         <Text className="data-state">{t('ui.allArticlesShown')}</Text>
       ) : null}
-    </View>
+    </ThemeView>
   )
 }

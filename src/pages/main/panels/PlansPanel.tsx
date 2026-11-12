@@ -1,5 +1,7 @@
 import { ScrollView, View } from '@tarojs/components'
 import { useEffect, useRef } from 'react'
+import { NavBar } from '@/components/NavBar'
+import { t } from '@/i18n'
 import { PlansContent } from '@/features/plans/PlansContent'
 import { usePlansController } from '@/features/plans/usePlansController'
 import '@/features/plans/PlansContent.scss'
@@ -38,8 +40,10 @@ export function PlansPanel({ active, pageShowCount, refreshVersion = 0 }: PlansP
       className={`main-panel main-panel--calendar ${active ? 'is-active' : ''}`}
       hidden={!active}
     >
+      <NavBar title={t('ui.plans')} />
       <ScrollView
         scrollY
+        enableBackToTop
         className="main-panel__scroll"
         onScrollToLower={() => controller.loadMore()}
       >

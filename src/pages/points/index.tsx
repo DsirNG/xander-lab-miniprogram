@@ -1,8 +1,23 @@
+import { ThemeView } from '@/components/ThemeView'
+import {
+  getSessionVersion,
+  privateCacheKeys,
+  readPrivateCache,
+  useSessionVersion,
+  writePrivateCache,
+} from '@/utils/privateCache'
+import { Skeleton } from '@/components/Skeleton'
 import { t, useLocale } from '@/i18n'
 import { Text, View } from '@tarojs/components'
 import Taro, { useDidShow, useReachBottom } from '@tarojs/taro'
 import { useRef, useState } from 'react'
-import { formatPoints, pointsApi, type PointsLedgerItem, type PointsOverview } from '@/api/points'
+import {
+  formatPoints,
+  pointsApi,
+  type PointsLedgerItem,
+  type PointsOverview,
+  type PointsLedgerPage,
+} from '@/api/points'
 import { NavBar } from '@/components/NavBar'
 import { ensureLogin } from '@/store/user'
 import { formatDateTime } from '@/utils/format'
@@ -13,13 +28,24 @@ function showToast(title: string) {
 }
 
 export default function Points() {
+  const session = useSessionVersion()
+  return <PointsContent key={session} session={session} />
+}
+
+function PointsContent({ session }: { session: number }) {
   useLocale()
-  const [overview, setOverview] = useState<PointsOverview | null>(null)
-  const [ledger, setLedger] = useState<PointsLedgerItem[]>([])
+  const [cachedLedger] = useState(() =>
+    readPrivateCache<PointsLedgerPage>(privateCacheKeys.pointsLedger),
+  )
+  const [overview, setOverview] = useState(() =>
+    readPrivateCache<PointsOverview>(privateCacheKeys.pointsOverview),
+  )
+  const [overviewLoading, setOverviewLoading] = useState(!overview)
+  const [ledger, setLedger] = useState<PointsLedgerItem[]>(cachedLedger?.records ?? [])
   const [page, setPage] = useState(1)
-  const [total, setTotal] = useState(0)
+  const [total, setTotal] = useState(cachedLedger?.total ?? 0)
   const [loading, setLoading] = useState(false)
-  const [loadedOnce, setLoadedOnce] = useState(false)
+  const [loadedOnce, setLoadedOnce] = useState(Boolean(cachedLedger))
   const loadingRef = useRef(false)
   const refreshingRef = useRef(false)
 
@@ -29,11 +55,14 @@ export default function Points() {
     setLoading(true)
     try {
       const result = await pointsApi.ledger(targetPage, 20)
+      if (session !== getSessionVersion()) return
+      if (targetPage === 1) writePrivateCache(privateCacheKeys.pointsLedger, result, session)
       setLedger(prev => (append ? [...prev, ...result.records] : result.records))
       setTotal(result.total)
       setPage(targetPage)
     } catch (e) {
-      showToast(e instanceof Error ? e.message : t('ui.unableToLoadPointsHistory'))
+      if (session === getSessionVersion())
+        showToast(e instanceof Error ? e.message : t('ui.unableToLoadPointsHistory'))
     } finally {
       loadingRef.current = false
       setLoading(false)
@@ -42,17 +71,28 @@ export default function Points() {
   }
 
   useDidShow(() => {
-    if (!ensureLogin() || refreshingRef.current) return
+    if (!ensureLogin()) {
+      setOverviewLoading(false)
+      setLoadedOnce(true)
+      return
+    }
+    if (refreshingRef.current) return
+    setOverviewLoading(true)
     refreshingRef.current = true
     // 两个业务接口独立鉴权、独立展示结果，不等待用户资料或彼此完成。
     void Promise.allSettled([
       pointsApi
         .overview()
-        .then(setOverview)
+        .then(result => {
+          if (session !== getSessionVersion()) return
+          writePrivateCache(privateCacheKeys.pointsOverview, result, session)
+          setOverview(result)
+        })
         .catch(error => {
-          setOverview(null)
+          if (session !== getSessionVersion()) return
           showToast(error instanceof Error ? error.message : t('ui.unableToLoadPointsOverview'))
-        }),
+        })
+        .finally(() => setOverviewLoading(false)),
       load(1, false),
     ]).finally(() => {
       refreshingRef.current = false
@@ -64,12 +104,18 @@ export default function Points() {
   })
 
   return (
-    <View className="detail-page">
+    <ThemeView className="detail-page points-page">
       <NavBar title={t('ui.pointsHistory')} showBack />
 
       <View className="points-card points-page-card">
         <View>
-          <Text className="points-balance">{overview ? formatPoints(overview.balance) : '--'}</Text>
+          {overviewLoading && !overview ? (
+            <Skeleton layout="balance" />
+          ) : (
+            <Text className="points-balance">
+              {overview ? formatPoints(overview.balance) : '--'}
+            </Text>
+          )}
           <Text className="points-label">{t('ui.availablePoints')}</Text>
         </View>
         <View className="points-today">
@@ -79,12 +125,17 @@ export default function Points() {
         </View>
       </View>
 
+      <View
+        className="wallet-topup-link"
+        onClick={() => Taro.navigateTo({ url: '/pages/subscription/index' })}
+      >
+        <Text>{t('wallet.manage')}</Text>
+        <Text>→</Text>
+      </View>
       <View className="section-title">
         <Text>{t('ui.transactions')}</Text>
       </View>
-      {loading && ledger.length === 0 ? (
-        <Text className="data-state">{t('ui.loadingData')}</Text>
-      ) : null}
+      {(loading || !loadedOnce) && ledger.length === 0 ? <Skeleton layout="ledger" /> : null}
       {loadedOnce && !loading && ledger.length === 0 ? (
         <Text className="data-state">{t('ui.noTransactionsYet')}</Text>
       ) : null}
@@ -92,7 +143,7 @@ export default function Points() {
         <View className="ledger-item" key={item.id}>
           <View className="ledger-info">
             <Text className="ledger-reason">
-              {item.remark || item.reason || t('ui.pointsChange')}
+              {item.bizType === 'refund-hold' ? t('orders.holdPoints') : item.bizType === 'refund-release' ? t('orders.releasePoints') : item.remark || item.reason || t('ui.pointsChange')}
             </Text>
             <Text className="ledger-time">{formatDateTime(item.createdAt)}</Text>
           </View>
@@ -101,7 +152,7 @@ export default function Points() {
           </Text>
         </View>
       ))}
-      {loading && ledger.length > 0 ? <Text className="data-state">{t('ui.loading')}</Text> : null}
-    </View>
+      {loading && ledger.length > 0 ? <Skeleton layout="ledger" count={1} /> : null}
+    </ThemeView>
   )
 }

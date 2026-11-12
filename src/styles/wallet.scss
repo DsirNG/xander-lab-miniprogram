@@ -1,0 +1,38 @@
+.wallet-breakdown {
+  display: flex;
+  gap: 12px;
+  margin: 18px 0;
+  > view,
+  > div {
+    flex: 1;
+    min-width: 0;
+    padding: 18px 14px;
+    border: 1px solid var(--color-line, #e8e9e5);
+    border-radius: 18px;
+    background: var(--color-surface, #fff);
+  }
+}
+.wallet-label {
+  display: block;
+  color: var(--color-ink-muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.wallet-value {
+  display: block;
+  margin: 8px 0;
+  color: var(--color-ink);
+  font-size: 30px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.wallet-topup-link {
+  display: flex;
+  justify-content: space-between;
+  padding: 16px;
+  margin-bottom: 24px;
+  color: #087e65;
+  background: #eaf6f0;
+  border-radius: 14px;
+  font-size: 14px;
+}

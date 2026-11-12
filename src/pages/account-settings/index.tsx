@@ -1,3 +1,8 @@
+import { FilingNotice } from '@/components/FilingNotice'
+import { showThemedActionSheet } from '@/utils/actionSheet'
+import { setThemeMode, themeModes, useThemeMode } from '@/hooks/useDarkMode'
+import { ThemeView } from '@/components/ThemeView'
+import { version } from '../../../package.json'
 import { Text, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { Icon } from '@/components/Icon'
@@ -26,7 +31,7 @@ function SettingsRow({
   icon: Parameters<typeof Icon>[0]['name']
   title: string
   description?: string
-  onClick: () => void
+  onClick?: () => void
 }) {
   return (
     <ListRow
@@ -34,7 +39,7 @@ function SettingsRow({
       leading={<Icon name={icon} />}
       title={<Text>{title}</Text>}
       description={description ? <Text>{description}</Text> : undefined}
-      trailing={<Icon name="right" />}
+      trailing={onClick ? <Icon name="right" /> : null}
       onClick={onClick}
     />
   )
@@ -45,34 +50,64 @@ const replyLanguages: ReplyLanguage[] = ['auto', 'zh', 'en']
 
 export default function AccountSettingsPage() {
   const locale = useLocale()
+  const themeMode = useThemeMode()
   const replyLanguage = useReplyLanguage()
   const logout = useUserStore(state => state.logout)
   const user = useUserStore(state => state.user)
   const signedIn = Boolean(user) && authApi.isLoggedIn()
   const navigateProtected = (url: string) => {
-    if (ensureLogin()) void Taro.navigateTo({ url })
+    const open = () => {
+      void Taro.navigateTo({ url })
+    }
+    if (ensureLogin(open)) open()
   }
-  const showInfo = (title: string, content: string) =>
-    Taro.showModal({ title, content, showCancel: false, confirmText: t('login.agree') })
+  const chooseTheme = async () => {
+    try {
+      const { tapIndex } = await showThemedActionSheet({
+        itemList: themeModes.map(mode => t(`preferences.theme.${mode}`)),
+      })
+      const next = themeModes[tapIndex]
+      if (next) setThemeMode(next)
+    } catch {
+      // Leave the current appearance when the chooser is dismissed.
+    }
+  }
+  const chooseLanguage = async (reply = false) => {
+    const choices = reply ? replyLanguages : [...supportedLocales]
+    try {
+      const result = await showThemedActionSheet({
+        itemList: choices.map(value =>
+          value === 'auto' ? t('preferences.replyAuto') : languageNames[value],
+        ),
+      })
+      const selected = choices[result.tapIndex]
+      if (!selected) return
+      if (reply) setReplyLanguage(selected)
+      else if (selected !== 'auto') setLocale(selected)
+    } catch {
+      // Dismissing the chooser keeps the current preference.
+    }
+  }
   const comingSoon = () => void Taro.showToast({ title: t('profile.comingSoon'), icon: 'none' })
   const signOut = async () => {
     const result = await Taro.showModal({
       title: t('preferences.signOut'),
       content: t('preferences.signOutHint'),
     })
-    if (result.confirm) await logout()
+    if (result.confirm) {
+      void logout()
+      void Taro.reLaunch({ url: '/pages/main/index?tab=chat' })
+    }
   }
 
   return (
-    <View className="settings-page">
+    <ThemeView className="settings-page">
       <NavBar
         title={t('settings.title')}
         showBack
-        background="var(--color-surface)"
         color="var(--color-ink)"
       />
       <View className="settings-content">
-        <Text className="settings-intro">{t('preferences.settingsIntro')}</Text>
         <Text className="settings-section-title">{t('settings.accountGroup')}</Text>
         <View className="settings-list">
           <SettingsRow
@@ -82,70 +117,60 @@ export default function AccountSettingsPage() {
             onClick={() => navigateProtected('/pages/account-profile/index')}
           />
           <SettingsRow
-            icon="points"
+            icon="shield"
             title={t('settings.security')}
             description={t('settings.securityDesc')}
             onClick={() => navigateProtected('/pages/security-center/index')}
           />
         </View>
 
+        <Text className="settings-section-title">{t('preferences.appearanceGroup')}</Text>
+        <View className="settings-list">
+          <SettingsRow
+            icon="theme"
+            title={t('preferences.themeTitle')}
+            description={t(`preferences.theme.${themeMode}`)}
+            onClick={() => void chooseTheme()}
+          />
+        </View>
+
         <Text className="settings-section-title">{t('preferences.languageGroup')}</Text>
-        <View className="settings-list settings-language-card">
-          <Text className="settings-option-title">{t('preferences.interfaceLanguage')}</Text>
-          <View className="settings-language-options">
-            {supportedLocales.map(value => (
-              <Button
-                key={value}
-                variant="ghost"
-                size="sm"
-                className={`settings-choice ${locale === value ? 'is-selected' : ''}`}
-                onClick={() => setLocale(value)}
-              >
-                {languageNames[value]}
-              </Button>
-            ))}
-          </View>
-          <Text className="settings-option-title">{t('preferences.replyLanguage')}</Text>
-          <View className="settings-language-options">
-            {replyLanguages.map(value => (
-              <Button
-                key={value}
-                variant="ghost"
-                size="sm"
-                className={`settings-choice ${replyLanguage === value ? 'is-selected' : ''}`}
-                onClick={() => setReplyLanguage(value)}
-              >
-                {value === 'auto' ? t('preferences.replyAuto') : languageNames[value]}
-              </Button>
-            ))}
-          </View>
-          <Text className="settings-option-hint">{t('preferences.replyHint')}</Text>
+        <View className="settings-list">
+          <SettingsRow
+            icon="globe"
+            title={t('preferences.interfaceLanguage')}
+            description={languageNames[locale as keyof typeof languageNames] || languageNames.zh}
+            onClick={() => void chooseLanguage()}
+          />
+          <SettingsRow
+            icon="languages"
+            title={t('preferences.replyLanguage')}
+            description={
+              replyLanguage === 'auto' ? t('preferences.replyAuto') : languageNames[replyLanguage]
+            }
+            onClick={() => void chooseLanguage(true)}
+          />
         </View>
 
         <Text className="settings-section-title">{t('preferences.supportGroup')}</Text>
         <View className="settings-list">
           <SettingsRow icon="star" title={t('profile.favorites')} onClick={comingSoon} />
-          <SettingsRow icon="discover" title={t('profile.help')} onClick={comingSoon} />
-          <SettingsRow icon="chat" title={t('profile.feedback')} onClick={comingSoon} />
+          <SettingsRow icon="help" title={t('profile.help')} onClick={comingSoon} />
+          <SettingsRow icon="feedback" title={t('profile.feedback')} onClick={comingSoon} />
           <SettingsRow
-            icon="star"
-            title={t('settings.privacy')}
-            description={t('settings.privacyDesc')}
-            onClick={() => showInfo(t('settings.privacy'), t('settings.privacyDesc'))}
+            icon="article"
+            title={t('login.agreementTitle')}
+            onClick={() => void Taro.navigateTo({ url: '/pages/legal/index?type=terms' })}
           />
-          <SettingsRow
-            icon="discover"
-            title={t('settings.about')}
-            description={t('settings.aboutDesc')}
-            onClick={() => showInfo(t('settings.about'), t('settings.aboutDesc'))}
-          />
+          <SettingsRow icon="info" title={t('settings.about')} description={`v${version}`} />
         </View>
         {signedIn ? (
           <Button variant="ghost" block className="settings-signout" onClick={signOut}>
             {t('preferences.signOut')}
           </Button>
         ) : null}
+        <FilingNotice />
       </View>
-    </View>
+    </ThemeView>
   )
 }

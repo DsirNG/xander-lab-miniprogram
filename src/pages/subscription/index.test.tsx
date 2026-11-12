@@ -7,18 +7,34 @@ const mocks = vi.hoisted(() => ({
   catalog: vi.fn(),
   refresh: vi.fn(),
   ensureLogin: vi.fn(),
+  overview: vi.fn(),
 }))
 vi.mock('@tarojs/taro', () => ({
+  useDidHide: vi.fn(),
   default: { showToast: vi.fn() },
   useDidShow: (callback: () => void) => {
-    mocks.onShow = callback
+    const previous = mocks.onShow
+    mocks.onShow = () => { previous?.(); callback() }
   },
 }))
-vi.mock('@tarojs/components', () => ({ Text: 'span', View: 'div' }))
+vi.mock('@tarojs/components', () => ({
+  ScrollView: 'section', Text: 'span',
+  View: 'div',
+  Swiper: 'section',
+  SwiperItem: 'article',
+}))
+vi.mock('@/components/Icon', () => ({ Icon: () => null }))
 vi.mock('@/components/NavBar', () => ({ NavBar: () => null }))
-vi.mock('@/components/ui/Button', () => ({ Button: () => null }))
+vi.mock('@/components/ui/Button', () => ({
+  Button: ({ children, disabled }: { children?: import('react').ReactNode; disabled?: boolean }) =>
+    createElement('button', { disabled }, children),
+}))
 vi.mock('@/i18n', () => ({ t: (key: string) => key, useLocale: () => 'zh' }))
 vi.mock('@/api/virtualPay', () => ({ virtualPayApi: { catalog: mocks.catalog } }))
+vi.mock('@/api/points', () => ({
+  pointsApi: { overview: mocks.overview },
+  formatPoints: (value: number) => String(value / 1000),
+}))
 vi.mock('@/store/user', () => ({
   ensureLogin: mocks.ensureLogin,
   useUserStore: Object.assign(
@@ -32,9 +48,11 @@ vi.mock('@/store/user', () => ({
 import Subscription from './index'
 
 beforeEach(() => {
+  mocks.onShow = null
   mocks.refresh.mockReset().mockReturnValue(new Promise(() => {}))
   mocks.catalog.mockReset().mockReturnValue(new Promise(() => {}))
   mocks.ensureLogin.mockReset().mockReturnValue(true)
+  mocks.overview.mockReset().mockReturnValue(new Promise(() => {}))
 })
 
 it('loads the product catalog without waiting for user information', () => {
@@ -42,6 +60,7 @@ it('loads the product catalog without waiting for user information', () => {
   mocks.onShow!()
   expect(mocks.refresh).toHaveBeenCalledTimes(1)
   expect(mocks.catalog).toHaveBeenCalledTimes(1)
+  expect(mocks.overview).not.toHaveBeenCalled()
   mocks.onShow!()
   expect(mocks.catalog).toHaveBeenCalledTimes(1)
 })
@@ -52,4 +71,14 @@ it('does not load a protected page without a local session', () => {
   mocks.onShow!()
   expect(mocks.catalog).not.toHaveBeenCalled()
   expect(mocks.refresh).not.toHaveBeenCalled()
+  expect(mocks.overview).not.toHaveBeenCalled()
+})
+
+it('hides wallet details and shows a points-card section without inventing unloaded products', () => {
+  const html = renderToStaticMarkup(createElement(Subscription))
+  for (const price of ['¥2.00', '¥4.00', '¥10.00']) expect(html).not.toContain(price)
+  expect(html).not.toContain('wallet.subscription')
+  expect(html).not.toContain('wallet.permanent')
+  expect(html).toContain('subscription.pointsCardRule')
+  expect(html).toContain('wallet.subscriberOnly')
 })

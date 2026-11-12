@@ -1,20 +1,69 @@
-.login-segmented {
-  margin-top: var(--space-4);
+.login-stage {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4) 0;
+}
+
+.login-stack {
+  display: flex;
+  width: 100%;
+  max-width: 360px;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.login-stack .login-brand {
+  margin: 0 0 var(--space-2);
+}
+
+.login-stack .login-divider,
+.login-stack .login-form,
+.login-stack > .login-submit,
+.login-stack > .login-skip {
+  margin: 0;
 }
 
 .login-legal {
   display: flex;
-  flex-wrap: wrap;
+  align-items: flex-start;
   justify-content: center;
-  margin-top: var(--space-5);
+  gap: 8px;
   color: var(--color-ink-muted);
   font-size: var(--text-caption);
   line-height: var(--leading-caption);
-  text-align: center;
+  text-align: left;
+}
+
+.login-legal-toggle {
+  display: flex;
+  flex: 0 0 36px;
+  min-height: 36px;
+  align-items: center;
+  justify-content: center;
+}
+
+.login-legal-circle {
+  width: 18px;
+  height: 18px;
+  box-sizing: border-box;
+  border: 2px solid var(--color-ink-muted);
+  border-radius: 50%;
+}
+
+.login-legal-toggle.is-checked .login-legal-circle {
+  border: 6px solid var(--color-accent);
+}
+
+.login-legal-copy {
+  min-width: 0;
+  padding-top: 8px;
 }
 
 .login-legal-link {
   color: var(--color-accent);
+  text-decoration: underline;
 }
 
 .login-bind-title {

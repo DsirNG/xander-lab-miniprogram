@@ -1,28 +1,34 @@
+import { FilingNotice } from '@/components/FilingNotice'
+import { Skeleton } from '@/components/Skeleton'
+import {
+  getSessionVersion,
+  privateCacheKeys,
+  readPrivateCache,
+  writePrivateCache,
+} from '@/utils/privateCache'
+import { ensureLogin } from '@/store/user'
 import { Image, Text, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { authApi } from '@/api/auth'
 import { formatPoints } from '@/api/points'
-import { profileApi } from '@/api/profile'
+import { profileApi, type ProfileOverview } from '@/api/profile'
+import { tokenStorage } from '@/api/http'
 import { Icon } from '@/components/Icon'
-import { NavBar } from '@/components/NavBar'
 import { usePanelActive } from '@/hooks/usePanelActive'
 import { t, useLocale } from '@/i18n'
-import { navigateToTab } from '@/store/tabBar'
-import { useUserStore } from '@/store/user'
-import type { TabKey } from '@/utils/tabBarRoute'
 
-function showToast(title: string) {
-  Taro.showToast({ title, icon: 'none' })
-}
+import { useUserStore } from '@/store/user'
 
 function ProfileMenuRow({
   icon,
   label,
+  value,
   onClick,
 }: {
   icon: Parameters<typeof Icon>[0]['name']
   label: string
+  value?: ReactNode
   onClick: () => void
 }) {
   return (
@@ -35,6 +41,7 @@ function ProfileMenuRow({
         <Icon name={icon} />
       </View>
       <Text className="menu-label">{label}</Text>
+      {value != null ? <View className="profile-menu-value">{value}</View> : null}
       <Icon name="right" className="menu-arrow-icon" />
     </View>
   )
@@ -49,35 +56,63 @@ export type ProfileContentProps = {
 export function ProfileContent({ active, refreshVersion = 0 }: ProfileContentProps) {
   useLocale()
   const user = useUserStore(state => state.user)
+  const loaded = useUserStore(state => state.loaded)
+  const [loadingSummary, setLoadingSummary] = useState(() => authApi.isLoggedIn())
   const setUser = useUserStore(state => state.setUser)
-  const [balance, setBalance] = useState<number | null>(null)
-  const [blogCount, setBlogCount] = useState<number | null>(null)
-  const [loading, setLoading] = useState(false)
+  const [summary, setSummary] = useState(() =>
+    readPrivateCache<Pick<ProfileOverview, 'points' | 'blogCount'>>(
+      privateCacheKeys.profileSummary,
+    ),
+  )
+  const balance = summary?.points ?? null
+  const overviewRequestRef = useRef(false)
+  const overviewFreshRef = useRef({ token: '', at: 0 })
   const handledRefreshVersionRef = useRef(refreshVersion)
 
   const clearOverview = useCallback(() => {
     setUser(null)
-    setBalance(null)
-    setBlogCount(null)
+    setSummary(null)
   }, [setUser])
 
-  const refreshOverview = useCallback(async () => {
-    if (!authApi.isLoggedIn()) {
-      clearOverview()
-      return
-    }
+  const refreshOverview = useCallback(
+    async (force = false) => {
+      if (!authApi.isLoggedIn()) {
+        clearOverview()
+        setLoadingSummary(false)
+        return
+      }
 
-    try {
-      const result = await profileApi.overview()
-      setUser(result.user)
-      setBalance(result.points)
-      setBlogCount(result.blogCount)
-    } catch {
-      if (!authApi.isLoggedIn()) setUser(null)
-      setBalance(null)
-      setBlogCount(null)
-    }
-  }, [clearOverview, setUser])
+      const token = tokenStorage.getAccessToken()
+      const session = getSessionVersion()
+      const cached = overviewFreshRef.current
+      if (
+        overviewRequestRef.current ||
+        (!force && cached.token === token && Date.now() - cached.at < 60_000)
+      )
+        return
+      overviewRequestRef.current = true
+      setLoadingSummary(true)
+      try {
+        const result = await profileApi.overview()
+        if (session !== getSessionVersion()) return
+        overviewFreshRef.current = { token, at: Date.now() }
+        setUser(result.user)
+        const next = { points: result.points, blogCount: result.blogCount }
+        writePrivateCache(privateCacheKeys.profileSummary, next, session)
+        setSummary(next)
+      } catch {
+        if (session !== getSessionVersion()) return
+        if (!authApi.isLoggedIn()) setUser(null)
+        if (!authApi.isLoggedIn()) {
+          setSummary(null)
+        }
+      } finally {
+        overviewRequestRef.current = false
+        setLoadingSummary(false)
+      }
+    },
+    [clearOverview, setUser],
+  )
 
   usePanelActive(active, { onShow: refreshOverview })
 
@@ -86,10 +121,8 @@ export function ProfileContent({ active, refreshVersion = 0 }: ProfileContentPro
     if (!active) return
 
     handledRefreshVersionRef.current = refreshVersion
-    void refreshOverview()
+    void refreshOverview(true)
   }, [active, refreshOverview, refreshVersion])
-
-  const navigateMainTab = useCallback((tab: TabKey) => navigateToTab(tab), [])
 
   const navigate = useCallback((url: string) => {
     void Taro.navigateTo({ url })
@@ -97,142 +130,97 @@ export function ProfileContent({ active, refreshVersion = 0 }: ProfileContentPro
 
   const navigateForUser = useCallback(
     (url: string) => {
-      navigate(authApi.isLoggedIn() ? url : '/pages/login/index')
+      if (ensureLogin(() => navigate(url))) navigate(url)
     },
     [navigate],
   )
 
-  const handleWechatLogin = async () => {
-    if (authApi.isLoggedIn()) {
-      navigate('/pages/account-profile/index')
-      return
-    }
-    if (Taro.getEnv() !== Taro.ENV_TYPE.WEAPP) {
-      navigate('/pages/login/index')
-      return
-    }
-    if (loading) return
-    setLoading(true)
-    try {
-      const loginResult = await Taro.login()
-      if (!loginResult.code) {
-        showToast(t('login.wxCredentialFailed'))
-        return
-      }
-      const response = await authApi.wechatLogin(loginResult.code)
-      if (response.pendingBind) {
-        navigate('/pages/login/index?autologin=1')
-        return
-      }
-      setUser(response.userInfo ?? null)
-      showToast(t('login.loginSuccess'))
-    } catch (error) {
-      showToast(error instanceof Error ? error.message : t('login.loginFailed'))
-    } finally {
-      setLoading(false)
-    }
-  }
+  const handleWechatLogin = () => navigateForUser('/pages/account-profile/index')
 
   return (
     <View className="page profile-page">
-      <NavBar left={<Text className="profile-nav-title">{t('profile.title')}</Text>} />
-
-      <View
-        className={`profile-head${loading ? ' profile-head--loading' : ''}`}
-        hoverClass="profile-head--pressed"
-        onClick={handleWechatLogin}
-      >
-        <View className="profile-avatar">
-          {user?.avatar ? (
-            <Image className="profile-avatar-img" src={user.avatar} mode="aspectFill" />
-          ) : (
-            <Text>{user ? user.nickname?.charAt(0) || 'X' : 'X'}</Text>
-          )}
-        </View>
-        <View className="profile-identity">
-          <View className="profile-name-line">
-            <Text className="profile-name">{user ? user.nickname : t('profile.guest')}</Text>
-            <Text className="profile-badge">
-              {user ? user.tier || t('profile.member') : t('profile.signIn')}
+      {!user && !loaded && authApi.isLoggedIn() ? (
+        <Skeleton layout="profile" />
+      ) : (
+        <View
+          className="profile-head"
+          hoverClass="profile-head--pressed"
+          onClick={handleWechatLogin}
+        >
+          <View className="profile-avatar">
+            {user?.avatar ? (
+              <Image className="profile-avatar-img" src={user.avatar} mode="aspectFill" />
+            ) : (
+              <Text>{user ? user.nickname?.charAt(0) || 'X' : 'X'}</Text>
+            )}
+          </View>
+          <View className="profile-identity">
+            <View className="profile-name-line">
+              <Text className="profile-name">{user ? user.nickname : t('profile.guest')}</Text>
+              <Text className="profile-badge">
+                {user ? user.tier || t('profile.member') : t('profile.signIn')}
+              </Text>
+            </View>
+            <Text className="profile-role">
+              {user ? user.username : t('profile.guestDescription')}
             </Text>
           </View>
-          <Text className="profile-role">
-            {user ? user.username : t('profile.guestDescription')}
-          </Text>
         </View>
-      </View>
-
-      <View className="profile-stats-card">
-        <View
-          className="profile-stat"
-          hoverClass="profile-stat--pressed"
+      )}
+      <Text className="profile-section-title">{t('profile.assetsGroup')}</Text>
+      <View className="profile-menu-group">
+        <ProfileMenuRow
+          icon="points"
+          label={t('profile.points')}
+          value={
+            balance == null ? (
+              loadingSummary ? (
+                <Skeleton layout="profileValue" />
+              ) : (
+                '--'
+              )
+            ) : (
+              formatPoints(balance)
+            )
+          }
           onClick={() => navigateForUser('/pages/points/index')}
-        >
-          <View className="profile-stat-label">
-            <Icon name="points" />
-            <Text>{t('profile.points')}</Text>
-          </View>
-          <Text className="profile-stat-value">
-            {balance == null ? '--' : formatPoints(balance)}
-          </Text>
-        </View>
-        <View className="profile-stat-divider" />
-        <View
-          className="profile-stat"
-          hoverClass="profile-stat--pressed"
-          onClick={() => navigateForUser('/pages/blog-manage/index')}
-        >
-          <View className="profile-stat-label">
-            <Icon name="article" />
-            <Text>{t('profile.blogCount')}</Text>
-          </View>
-          <Text className="profile-stat-value">{blogCount == null ? '--' : blogCount}</Text>
-        </View>
-      </View>
-
-      <View
-        className="profile-membership"
-        hoverClass="profile-menu-row--pressed"
-        onClick={() => navigateForUser('/pages/subscription/index')}
-      >
-        <View className="profile-membership-icon">
-          <Icon name="star" />
-        </View>
-        <View className="profile-membership-copy">
-          <Text className="profile-membership-title">{t('profile.subscription')}</Text>
-          <Text className="profile-membership-description">{t('preferences.membershipHint')}</Text>
-        </View>
-        <Icon name="right" />
+        />
+        <ProfileMenuRow
+          icon="crown"
+          label={t('profile.subscription')}
+          onClick={() => navigateForUser('/pages/subscription/index')}
+        />
+        <ProfileMenuRow icon="receipt" label={t('orders.title')} onClick={() => navigateForUser('/pages/orders/index')} />
       </View>
 
       <Text className="profile-section-title">{t('preferences.workspaceGroup')}</Text>
-      <View className="profile-menu-group profile-menu-group--primary">
+      <View className="profile-menu-group">
         <ProfileMenuRow
-          icon="star"
-          label={t('profile.recitation')}
-          onClick={() => navigateForUser('/pages/recitation/index')}
+          icon="article"
+          label={t('profile.blogs')}
+          onClick={() => navigateForUser('/pages/blog-manage/index')}
         />
         <ProfileMenuRow
           icon="calendar"
           label={t('profile.plans')}
-          onClick={() =>
-            authApi.isLoggedIn() ? navigateMainTab('calendar') : navigate('/pages/login/index')
-          }
+          onClick={() => navigateForUser('/pages/plans/index')}
         />
         <ProfileMenuRow
-          icon="chat"
+          icon="bell"
           label={t('profile.notifications')}
           onClick={() => navigateForUser('/pages/notifications/index')}
         />
       </View>
 
-      <View className="profile-menu-group profile-menu-group--secondary">
+      <Text className="profile-section-title">{t('profile.generalGroup')}</Text>
+      <View className="profile-menu-group">
         <ProfileMenuRow
-          icon="user"
+          icon="settings"
           label={t('profile.settings')}
           onClick={() => navigate('/pages/account-settings/index')}
         />
       </View>
+      <FilingNotice />
     </View>
   )
 }

@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({ token: 'access', me: vi.fn(), navigateTo: vi.fn() }))
 vi.mock('@tarojs/taro', () => ({
-  default: { navigateTo: mocks.navigateTo, removeStorageSync: vi.fn() },
+  default: { navigateTo: mocks.navigateTo, showModal: vi.fn(async () => ({ confirm: true })), getCurrentPages: () => [], removeStorageSync: vi.fn(), getStorageSync: vi.fn(), setStorageSync: vi.fn() },
 }))
 vi.mock('@/api/auth', () => ({ authApi: { me: mocks.me, isLoggedIn: () => Boolean(mocks.token) } }))
 vi.mock('@/api/http', () => ({
@@ -17,6 +17,7 @@ vi.mock('@/api/http', () => ({
   },
 }))
 
+import Taro from '@tarojs/taro'
 import { ApiError } from '@/api/http'
 import type { UserInfo } from '@/api/auth'
 import { ensureLogin, useUserStore } from './user'
@@ -75,12 +76,20 @@ describe('user profile synchronization', () => {
     expect(useUserStore.getState().user).toBeNull()
   })
 
-  it('uses the local token for navigation without a profile preflight', () => {
+  it('uses the local token for navigation without a profile preflight', async () => {
     expect(ensureLogin()).toBe(true)
     expect(mocks.me).not.toHaveBeenCalled()
     useUserStore.getState().setUser(user)
     mocks.token = ''
     expect(ensureLogin()).toBe(false)
-    expect(mocks.navigateTo).toHaveBeenCalledWith({ url: '/pages/login/index' })
+    expect(mocks.navigateTo).not.toHaveBeenCalled()
+    await vi.waitFor(() => expect(mocks.navigateTo).toHaveBeenCalledWith({ url: '/pages/login/index' }))
   })
+})
+
+it('persists profile updates and removes the local profile on account clearing', () => {
+  useUserStore.getState().setUser(user)
+  expect(Taro.setStorageSync).toHaveBeenCalledWith('xander_user_profile_v1', user)
+  useUserStore.getState().setUser(null)
+  expect(Taro.removeStorageSync).toHaveBeenCalledWith('xander_user_profile_v1')
 })

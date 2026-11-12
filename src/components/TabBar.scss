@@ -17,7 +17,7 @@
   box-sizing: border-box;
   overflow: visible;
   touch-action: none;
-  transition: transform 180ms ease;
+  transition: transform var(--motion-fast) var(--ease-emphasized);
 }
 
 .tab-bar__glass {
@@ -25,40 +25,40 @@
   z-index: 0;
   inset: 0;
   overflow: hidden;
-
-  border: 1px solid rgba(134, 144, 156, 0.14);
+  border: 0;
   border-radius: var(--radius-pill, 9999rpx);
-  background: var(--color-glass-surface, rgba(255, 255, 255, 0.72));
-  box-shadow: var(--shadow-glass, 0 20rpx 60rpx rgba(29, 33, 41, 0.12));
+  background: var(--color-glass-surface);
+  box-shadow:
+    0 12px 32px rgba(24, 24, 27, 0.08),
+    0 2px 6px rgba(24, 24, 27, 0.04);
 
-  backdrop-filter: blur(20px) saturate(160%);
-  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
   pointer-events: none;
   transition:
-    transform 220ms cubic-bezier(0.22, 0.8, 0.26, 1),
-    box-shadow 220ms ease;
+    transform var(--motion-normal) var(--ease-emphasized),
+    box-shadow var(--motion-normal) var(--ease-standard);
 }
 
 .tab-list {
   position: relative;
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  z-index: 1;
+  display: flex;
   width: 100%;
   height: 100%;
   overflow: visible;
 }
 
-/* Keep the positioning box at one cell wide while the inner capsule expands.
- * Percentage translations then retain the same origin on press and release. */
 .pill-position {
   position: absolute;
   top: 0;
   bottom: 0;
   left: 0;
-  z-index: 1;
+  /* Keep the capsule behind content even across Taro's recursive comp nodes. */
+  z-index: -1;
   width: 25%;
   pointer-events: none;
-  transition: transform 320ms cubic-bezier(0.16, 1, 0.3, 1);
+  transition: transform 320ms var(--ease-emphasized);
   will-change: transform;
 }
 
@@ -73,23 +73,16 @@
   width: 100%;
   height: 100%;
   box-sizing: border-box;
+  border: 0;
   border-radius: var(--radius-pill, 9999rpx);
-  border: none;
-  background: radial-gradient(
-    circle at center,
-    rgba(255, 255, 255, 0.78) 0%,
-    rgba(249, 249, 247, 0.96) 58%,
-    #f9f9f7 100%
-  );
-  box-shadow: none;
+  background: var(--color-surface-muted, #f4f4f5);
   pointer-events: none;
   transition:
-    top 140ms ease,
-    left 140ms ease,
-    width 140ms ease,
-    height 140ms ease,
-    border-color 140ms ease,
-    background-color 140ms ease;
+    top var(--motion-fast) var(--ease-emphasized),
+    left var(--motion-fast) var(--ease-emphasized),
+    width var(--motion-fast) var(--ease-emphasized),
+    height var(--motion-fast) var(--ease-emphasized),
+    background-color var(--motion-fast) var(--ease-standard);
 }
 
 .active-pill--expanded {
@@ -99,21 +92,17 @@
   width: calc(100% + var(--pill-drag-size));
   height: calc(100% + var(--pill-drag-size));
   box-sizing: border-box;
-  border: 1px solid rgba(134, 144, 156, 0.22);
-  background: transparent;
-  box-shadow: none;
+  border: 0;
+  background: var(--color-divider);
   transform-origin: center;
   transition:
-    top 140ms ease,
-    left 140ms ease,
-    width 140ms ease,
-    height 140ms ease,
-    border-color 140ms ease,
-    background-color 140ms ease;
+    top var(--motion-fast) var(--ease-emphasized),
+    left var(--motion-fast) var(--ease-emphasized),
+    width var(--motion-fast) var(--ease-emphasized),
+    height var(--motion-fast) var(--ease-emphasized),
+    background-color var(--motion-fast) var(--ease-standard);
 }
 
-/* Pointer movement should never lag behind the finger while the expanded
- * capsule is being repositioned. */
 .active-pill--dragging {
   transition: none;
 }
@@ -121,36 +110,46 @@
 .tab-item {
   position: relative;
   z-index: 2;
+  flex: 1 1 0%;
+  width: 25%;
+  height: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 2px;
   min-width: 0;
-  min-height: 50px;
+  min-height: 48px;
   padding: 4px 2px;
   border-radius: var(--radius-pill, 9999rpx);
-  color: var(--color-ink-muted, #86909c);
-  font-size: var(--text-micro, 22rpx);
-  line-height: var(--leading-micro, 32rpx);
+  color: var(--color-ink-muted, #71717a);
+  font-size: 11px;
+  letter-spacing: -0.01em;
+  line-height: 15px;
   white-space: nowrap;
   touch-action: none;
-  transition: color 120ms ease;
+  transition:
+    color var(--motion-fast) var(--ease-standard),
+    transform var(--motion-instant) var(--ease-standard);
+}
+
+.tab-item:active {
+  transform: scale(var(--scale-press));
 }
 
 .tab-item .animated-icon-wrap {
   width: 21px;
   height: 21px;
-  transition: transform 120ms ease;
+  transition: transform var(--motion-fast) var(--ease-emphasized);
 }
 
 .tab-item.active {
-  color: var(--color-ink, #1d2129);
-  font-weight: 600;
+  color: var(--color-ink, #18181b);
+  font-weight: 650;
 }
 
 .tab-bar--dragging {
-  transform: scale(1.01);
+  transform: scale(1.015);
   transform-origin: center bottom;
 }
 

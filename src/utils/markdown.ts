@@ -25,20 +25,20 @@ const H_STYLE: Record<number, string> = {
 }
 
 const CODE_STYLE =
-  'background:#f8f9fa;color:#c7254e;padding:1px 4px;border-radius:4px;font-size:90%;word-break:break-all;border:1px solid #f0f0f4'
-const PARAGRAPH_STYLE = 'margin:0;line-height:1.7;font-size:15px;color:#333;word-break:break-word'
+  'background:#f4f4f5;color:#18181b;padding:2px 5px;border-radius:5px;font-size:88%;font-family:ui-monospace,monospace;word-break:break-all;border:1px solid rgba(24,24,27,0.08)'
+const PARAGRAPH_STYLE = 'margin:0;line-height:1.72;font-size:15px;color:#27272a;word-break:break-word'
 const BLOCKQUOTE_STYLE =
-  'margin:0;padding:8px 12px;background:#ffffff;border-left:3px solid #1677ff;color:#555;line-height:1.7;font-size:14px;word-break:break-word;border-top:1px solid #f0f0f4;border-right:1px solid #f0f0f4;border-bottom:1px solid #f0f0f4;border-radius:0 8px 8px 0'
+  'margin:0;padding:10px 14px;background:#fafafa;border-left:3px solid #18181b;color:#52525b;line-height:1.7;font-size:14px;word-break:break-word;border-top:1px solid #f0f0f2;border-right:1px solid #f0f0f2;border-bottom:1px solid #f0f0f2;border-radius:0 10px 10px 0'
 const PRE_STYLE =
-  'background:#fafafa;color:#333;font-size:13px;line-height:1.6;padding:12px 14px;border-radius:10px;margin:0;overflow-x:auto;white-space:pre-wrap;word-break:break-all;border:1px solid #eeeeee'
+  'background:#f4f4f5;color:#18181b;font-size:13px;font-family:ui-monospace,monospace;line-height:1.65;padding:12px 14px;border-radius:12px;margin:0;overflow-x:auto;white-space:pre-wrap;word-break:break-all;border:1px solid rgba(24,24,27,0.08)'
 const TABLE_STYLE =
-  'width:100%;border-collapse:collapse;margin:0;font-size:13px;color:#333;table-layout:fixed'
-const CELL_STYLE = 'border:1px solid #e0e0e8;padding:6px 10px;word-break:break-all'
-const LI_STYLE = 'line-height:1.8;font-size:15px;color:#333;margin:4px 0'
-const IMG_STYLE = 'max-width:100%;border-radius:8px;display:block;margin:0'
-// RichText 节点内不能可靠继承页面 CSS 变量，使用与 --color-accent 一致的静态值。
-const LINK_STYLE = 'color:#1677ff'
-const HR_STYLE = 'margin:0;border-top:1px solid #ececf1'
+  'width:100%;border-collapse:collapse;margin:0;font-size:13px;color:#27272a;table-layout:fixed'
+const CELL_STYLE = 'border:1px solid #e4e4e7;padding:7px 10px;word-break:break-all'
+const LI_STYLE = 'line-height:1.78;font-size:15px;color:#27272a;margin:4px 0'
+const IMG_STYLE = 'max-width:100%;border-radius:10px;display:block;margin:0'
+// RichText nodes need resolved colors rather than inherited CSS variables.
+const LINK_STYLE = 'color:#18181b;text-decoration:underline;font-weight:500'
+const HR_STYLE = 'margin:0;border-top:1px solid #e4e4e7'
 const BLOCK_GAP = '<div style="height:10px"></div>'
 const MATH_STYLE = 'font-family:serif;white-space:nowrap'
 
@@ -239,7 +239,26 @@ function renderTable(lines: string[], index: number): { html: string; next: numb
   return { html: `<table style="${TABLE_STYLE}">${body}</table>`, next: cursor }
 }
 
-export function markdownToHtml(markdown: string): string {
+const DARK_MARKDOWN_COLORS: Record<string, string> = {
+  '#111': '#f4f4f5',
+  '#27272a': '#e4e4e7',
+  '#52525b': '#c8c8cf',
+  '#18181b': '#f4f4f5',
+  '#f4f4f5': '#25252a',
+  '#fafafa': '#1e1e22',
+  '#fafafc': '#28282e',
+  '#f0f0f2': '#36363d',
+  '#e4e4e7': '#3c3c44',
+  'rgba(24,24,27,0.08)': '#3c3c44',
+}
+
+function resolveDarkStyles(html: string) {
+  return html.replace(/(<[a-z][^<>]*?\sstyle=")([^"]*)(")/gi, (_, before, style: string, after) =>
+    before + style.replace(/#[0-9a-f]+|rgba\(24,24,27,0\.08\)/gi, value => DARK_MARKDOWN_COLORS[value] ?? value) + after,
+  )
+}
+
+export function markdownToHtml(markdown: string, dark = false): string {
   const lines = markdown.replace(/\r\n/g, '\n').split('\n')
   const blocks: string[] = []
   let cursor = 0
@@ -353,7 +372,8 @@ export function markdownToHtml(markdown: string): string {
     cursor += 1
   }
 
-  return `<div>${blocks.join(BLOCK_GAP)}</div>`
+  const html = `<div>${blocks.join(BLOCK_GAP)}</div>`
+  return dark ? resolveDarkStyles(html) : html
 }
 
 /** 思考过程摘要：取前若干字符作为卡片预览 */

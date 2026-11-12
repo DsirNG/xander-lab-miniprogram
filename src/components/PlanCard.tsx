@@ -1,3 +1,4 @@
+import { showThemedActionSheet } from '@/utils/actionSheet'
 import { t, useLocale } from '@/i18n'
 import { Text, View } from '@tarojs/components'
 import Taro from '@tarojs/taro'
@@ -64,7 +65,7 @@ export function PlanCard({
     event.stopPropagation()
     if (visibleActions.length === 0) return
     try {
-      const result = await Taro.showActionSheet({
+      const result = await showThemedActionSheet({
         itemList: visibleActions.map(action => action.title),
       })
       const selected = visibleActions[result.tapIndex]
