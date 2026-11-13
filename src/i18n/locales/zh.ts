@@ -1,4 +1,14 @@
 export default {
+  replyActions: {
+    copy: '复制',
+    like: '点赞',
+    dislike: '点踩',
+    share: '分享回复',
+    undoLike: '取消点赞',
+    undoDislike: '取消点踩',
+    copyFailed: '复制失败，请重试',
+    shareFailed: '暂时无法分享，可复制后发送',
+  },
   orders: {
     paidAt: "支付时间",
     EXPIRED: "已过期",

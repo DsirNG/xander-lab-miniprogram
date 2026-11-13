@@ -1,4 +1,14 @@
 export default {
+  replyActions: {
+    copy: 'Copier',
+    like: 'J’aime',
+    dislike: 'Je n’aime pas',
+    share: 'Partager la réponse',
+    undoLike: 'Annuler le vote positif',
+    undoDislike: 'Annuler le vote négatif',
+    copyFailed: 'Échec de la copie. Réessayez.',
+    shareFailed: 'Partage indisponible. Copiez la réponse.',
+  },
   orders: {
     paidAt: "Payment time",
     EXPIRED: "Expired",

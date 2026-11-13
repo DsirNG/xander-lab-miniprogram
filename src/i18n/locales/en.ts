@@ -1,4 +1,14 @@
 export default {
+  replyActions: {
+    copy: 'Copy',
+    like: 'Like',
+    dislike: 'Dislike',
+    share: 'Share reply',
+    undoLike: 'Undo like',
+    undoDislike: 'Undo dislike',
+    copyFailed: 'Could not copy. Try again.',
+    shareFailed: 'Unable to share. You can copy the reply instead.',
+  },
   orders: {
     paidAt: "Payment time",
     EXPIRED: "Expired",

@@ -10,7 +10,13 @@ import type { ImageToolResult } from '../imageMessage'
 
 let previewFileId = 0
 
-export function ChatImage({ result }: { result: ImageToolResult & { preview?: boolean } }) {
+export function ChatImage({
+  result,
+  onLayout,
+}: {
+  result: ImageToolResult & { preview?: boolean }
+  onLayout?: () => void
+}) {
   useLocale()
   const { url, preview } = result
   const [displayed, setDisplayed] = useState<CachedChatImage | undefined>(() =>
@@ -70,6 +76,10 @@ export function ChatImage({ result }: { result: ImageToolResult & { preview?: bo
     },
     [],
   )
+
+  useEffect(() => {
+    onLayout?.()
+  }, [displayed, failed, onLayout])
 
   const scale = displayed ? Math.min(1, 200 / displayed.width, 240 / displayed.height) : 1
   const width = displayed ? Math.round(displayed.width * scale) : 192

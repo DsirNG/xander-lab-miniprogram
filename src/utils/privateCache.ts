@@ -7,6 +7,7 @@ export const privateCacheKeys = {
   pointsOverview: 'xander_points_overview_v1',
   pointsLedger: 'xander_points_ledger_v1',
   activeChat: 'chat_active_id',
+  replyReactions: 'dinqorai:reply-reactions',
   publishDraft: 'dinqorai:miniprogram:publish-draft',
   publishRequest: 'dinqorai:miniprogram:publish-request',
 } as const
@@ -18,7 +19,9 @@ const listeners = new Set<() => void>()
 const cacheCleanups = new Set<() => void>()
 export function onPrivateCacheReset(cleanup: () => void) {
   cacheCleanups.add(cleanup)
-  return () => { cacheCleanups.delete(cleanup) }
+  return () => {
+    cacheCleanups.delete(cleanup)
+  }
 }
 
 export const getSessionVersion = () => session

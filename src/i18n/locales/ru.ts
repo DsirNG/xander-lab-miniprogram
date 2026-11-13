@@ -1,4 +1,14 @@
 export default {
+  replyActions: {
+    copy: 'Копировать',
+    like: 'Нравится',
+    dislike: 'Не нравится',
+    share: 'Поделиться ответом',
+    undoLike: 'Отменить лайк',
+    undoDislike: 'Отменить дизлайк',
+    copyFailed: 'Не удалось скопировать. Повторите.',
+    shareFailed: 'Не удалось поделиться. Скопируйте ответ.',
+  },
   orders: {
     paidAt: "Payment time",
     EXPIRED: "Expired",

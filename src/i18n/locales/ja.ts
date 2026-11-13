@@ -1,4 +1,14 @@
 export default {
+  replyActions: {
+    copy: 'コピー',
+    like: '高評価',
+    dislike: '低評価',
+    share: '返信を共有',
+    undoLike: '高評価を解除',
+    undoDislike: '低評価を解除',
+    copyFailed: 'コピーできませんでした。再試行してください。',
+    shareFailed: '共有できません。返信をコピーしてください。',
+  },
   orders: {
     paidAt: "Payment time",
     EXPIRED: "Expired",

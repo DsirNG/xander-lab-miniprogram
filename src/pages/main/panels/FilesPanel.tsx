@@ -40,6 +40,7 @@ export function FilesPanel({
 }
 
 function LibraryList({ active }: { active: boolean }) {
+  const [refreshing, setRefreshing] = useState(false)
   const [attempt, setAttempt] = useState(0)
   const [images, setImages] = useState<LibraryImage[]>([])
   const [visited, setVisited] = useState(active)
@@ -61,13 +62,27 @@ function LibraryList({ active }: { active: boolean }) {
       .catch(() => {
         if (!cancelled) setStatus('error')
       })
+      .finally(() => {
+        if (!cancelled) setRefreshing(false)
+      })
     return () => {
       cancelled = true
     }
   }, [visited, attempt])
 
   return (
-    <ScrollView scrollY className="main-panel__scroll">
+    <ScrollView
+      scrollY
+      className="main-panel__scroll"
+      refresherEnabled={active}
+      refresherTriggered={refreshing}
+      refresherBackground="transparent"
+      onRefresherRefresh={() => {
+        if (refreshing) return
+        setRefreshing(true)
+        setAttempt(value => value + 1)
+      }}
+    >
       <View className="library-content">
         <View className="library-grid">
           {images.map(image => (
@@ -108,7 +123,19 @@ function LibraryThumbnail({ image, onPreview }: { image: LibraryImage; onPreview
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading')
   const [attempt, setAttempt] = useState(0)
   return (
-    <View className="library-thumbnail" onClick={state === 'ready' ? onPreview : state === 'error' ? () => { setState('loading'); setAttempt(n => n + 1) } : undefined}>
+    <View
+      className="library-thumbnail"
+      onClick={
+        state === 'ready'
+          ? onPreview
+          : state === 'error'
+            ? () => {
+                setState('loading')
+                setAttempt(n => n + 1)
+              }
+            : undefined
+      }
+    >
       {state === 'loading' && <SkeletonBlock height="100%" />}
       {state === 'error' && (
         <View className="library-thumbnail-error">
@@ -124,7 +151,10 @@ function LibraryThumbnail({ image, onPreview }: { image: LibraryImage; onPreview
         src={image.url}
         ariaLabel={image.originalName}
         onLoad={() => setState('ready')}
-        onError={event => { logImageFailure(image.url, event.detail?.errMsg); setState('error') }}
+        onError={event => {
+          logImageFailure(image.url, event.detail?.errMsg)
+          setState('error')
+        }}
       />
     </View>
   )

@@ -1,4 +1,14 @@
 export default {
+  replyActions: {
+    copy: 'Sao chép',
+    like: 'Thích',
+    dislike: 'Không thích',
+    share: 'Chia sẻ câu trả lời',
+    undoLike: 'Bỏ thích',
+    undoDislike: 'Bỏ không thích',
+    copyFailed: 'Không thể sao chép. Hãy thử lại.',
+    shareFailed: 'Không thể chia sẻ. Bạn có thể sao chép câu trả lời.',
+  },
   orders: {
     paidAt: "Payment time",
     EXPIRED: "Expired",

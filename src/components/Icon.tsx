@@ -1,6 +1,10 @@
 import { Image } from '@tarojs/components'
 
 const icons = {
+  share: require('@/assets/icons/share.svg'),
+  'thumb-down': require('@/assets/icons/thumb-down.svg'),
+  'thumb-up': require('@/assets/icons/thumb-up.svg'),
+  copy: require('@/assets/icons/copy.svg'),
   receipt: require('@/assets/icons/receipt.svg'),
   pin: require('@/assets/icons/pin.svg'),
   theme: require('@/assets/icons/theme.svg'),

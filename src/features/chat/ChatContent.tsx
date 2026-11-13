@@ -1,3 +1,5 @@
+import { useChatScroll } from '@/hooks/useChatScroll'
+import { ReplyActions } from '@/pages/chat/components/ReplyActions'
 import { showThemedActionSheet } from '@/utils/actionSheet'
 import { NativeChatDrawer } from '@/components/NativeChatDrawer'
 import { ChatKeyboardClearance } from '@/components/ChatKeyboardClearance'
@@ -191,7 +193,7 @@ export function ChatContent({
   const [running, setRunning] = useState(false)
   const [creating, setCreating] = useState(false)
   const [thoughtOpen, setThoughtOpen] = useState<Record<number, boolean>>({})
-  const [scrollTarget, setScrollTarget] = useState('')
+  const keyboardHeight = useChatKeyboard(state => state.height)
   const [drawerPhase, setDrawerPhase] = useState<ChatDrawerPhase>('closed')
   const updateDrawerPhase = useCallback(
     (phase: ChatDrawerPhase) => {
@@ -716,24 +718,12 @@ export function ChatContent({
     void Promise.allSettled(refreshTasks)
   }, [loadConversations, panelActive, refreshVersion, resumeActive])
 
-  useEffect(() => {
-    if (!active) return
-    const timer = setTimeout(() => {
-      setScrollTarget(current =>
-        current === 'chat-scroll-bottom-a' ? 'chat-scroll-bottom-b' : 'chat-scroll-bottom-a',
-      )
-    }, 60)
-    return () => clearTimeout(timer)
-  }, [
+  const chatScroll = useChatScroll(
     active?.conversation.id,
-    lastMessageId,
-    messages.length,
-    running,
-    streamAnswer.length,
-    streamThought.length,
-    Boolean(streamTool),
-    streamImageResult?.url,
-  ])
+    panelActive && !loadingConversation && Boolean(active),
+    `${lastMessageId}:${messages.length}:${running}:${streamAnswer.length}:${streamThought.length}:${Boolean(streamTool)}:${streamImageResult?.url}`,
+    keyboardHeight,
+  )
 
   const openConversation = async (id: number) => {
     const session = getSessionVersion()
@@ -777,7 +767,6 @@ export function ChatContent({
     setRunning(false)
     replaceComposerDraft('')
     setAttachments([])
-    setScrollTarget('')
     setStreamAnswer('')
     setStreamThought('')
     setStreamTool(null)
@@ -874,6 +863,7 @@ export function ChatContent({
   }
 
   const handleSend = async (forcedContent?: string) => {
+    chatScroll.followLatest()
     const selectedAttachments: AgentAttachment[] = attachments
       .filter(item => item.status !== 'uploading' && item.status !== 'error')
       .map(({ id, status, tempPath, ...agentAttachment }) => agentAttachment)
@@ -1006,8 +996,20 @@ export function ChatContent({
           </View>
         </ScrollView>
       ) : active ? (
-        <ScrollView scrollY className="chat-messages" scrollIntoView={scrollTarget} scrollAnchoring>
-          <View className="chat-messages-inner">
+        <ScrollView
+          id="chat-message-viewport"
+          scrollY
+          className="chat-messages"
+          scrollTop={chatScroll.scrollTop}
+          scrollIntoView={chatScroll.scrollTarget}
+          onScroll={chatScroll.onScroll}
+          onScrollToLower={chatScroll.onScrollToLower}
+          onTouchStart={chatScroll.onTouchStart}
+          onTouchEnd={chatScroll.onTouchEnd}
+          onTouchCancel={chatScroll.onTouchEnd}
+          lowerThreshold={48}
+        >
+          <View id="chat-message-content" className="chat-messages-inner">
             <View className="chat-turn-list">
               {messageTurns.map(turn => (
                 <View id={turn.id} className={`chat-turn ${turn.role}`} key={turn.key}>
@@ -1018,6 +1020,7 @@ export function ChatContent({
                       imageResultUrls={turn.imageResultUrls}
                       open={Boolean(thoughtOpen[message.id])}
                       onToggleThought={toggleThought}
+                      onLayout={chatScroll.scrollToBottom}
                     />
                   ))}
                 </View>
@@ -1040,7 +1043,12 @@ export function ChatContent({
                       </Text>
                     </View>
                   ) : null}
-                  {streamImageResult ? <GeneratedImage result={streamImageResult} /> : null}
+                  {streamImageResult ? (
+                    <GeneratedImage
+                      result={streamImageResult}
+                      onLayout={chatScroll.scrollToBottom}
+                    />
+                  ) : null}
                   {streamThought ? (
                     <View className="msg-thought">
                       <Text className="msg-thought-title">{t('ui.thinking')}</Text>
@@ -1115,6 +1123,7 @@ export function ChatContent({
         onSubmit={content => handleSend(content)}
         onStop={handleCancel}
         onKeyboardHeightChange={updateKeyboardInset}
+        onLayoutChange={chatScroll.scrollToBottom}
       />
       <ChatKeyboardClearance />
       <View
@@ -1198,12 +1207,14 @@ const MessagePart = memo(function MessagePart({
   imageResultUrls,
   open,
   onToggleThought,
+  onLayout,
 }: {
   message: AgentMessage
   imageResultUrls: Set<string>
   open: boolean
   /** 收 id 而不是闭包：父层因此能用同一个 useCallback 实例，memo 才挡得住。 */
   onToggleThought: (messageId: number) => void
+  onLayout: () => void
 }) {
   useLocale()
   const toggle = useCallback(() => onToggleThought(message.id), [onToggleThought, message.id])
@@ -1262,7 +1273,7 @@ const MessagePart = memo(function MessagePart({
   }
   if (message.kind === 'tool_result') {
     const result = parseImageToolResult(message)
-    if (result) return <GeneratedImage result={result} />
+    if (result) return <GeneratedImage result={result} onLayout={onLayout} />
     return (
       <View className="msg-tool is-complete">
         <Text>{t('ui.toolCompleted')}</Text>
@@ -1277,6 +1288,7 @@ const MessagePart = memo(function MessagePart({
           [...imageResultUrls].some(url => sameImageResource(url, part.url)) ? null : (
             <GeneratedImage
               key={`${message.id}-${index}`}
+              onLayout={onLayout}
               result={{ url: part.url, title: part.title }}
             />
           )
@@ -1286,6 +1298,9 @@ const MessagePart = memo(function MessagePart({
           </View>
         ) : null,
       )}
+      {message.role === 'assistant' && message.kind === 'answer' && message.content.trim() ? (
+        <ReplyActions message={message} />
+      ) : null}
     </>
   )
 })
